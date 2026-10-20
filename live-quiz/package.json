@@ -1,0 +1,22 @@
+{
+  "name": "bayangin-aja-live-quiz",
+  "version": "1.0.0",
+  "description": "Kuis interaktif TikTok LIVE Bayangin Aja",
+  "main": "server.js",
+  "scripts": {
+    "start": "node server.js",
+    "test": "node --test test/*.test.js",
+    "map": "node scripts/build-map.mjs",
+    "snap": "node scripts/snap.mjs"
+  },
+  "dependencies": {
+    "tiktok-live-connector": "^2.5.0",
+    "ws": "^8.22.0"
+  },
+  "devDependencies": {
+    "topojson-client": "^3.1.0",
+    "world-atlas": "^2.0.2"
+  },
+  "type": "module",
+  "private": true
+}
