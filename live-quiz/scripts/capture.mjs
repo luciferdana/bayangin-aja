@@ -30,8 +30,12 @@ page.on('console', (m) => m.type() === 'error' && console.error('console:', m.te
 // Parameter tambahan lewat env, misalnya QUIZ_PARAMS='bumi=siang'.
 const extra = process.env.QUIZ_PARAMS ? `&${process.env.QUIZ_PARAMS}` : '';
 const jam = /(^|&)jam=/.test(extra) ? '' : '&jam=2026-10-20T12:00:00Z';
-await page.goto(`http://localhost:${srv.port}/?sim=1&capture=1&seed=7&viewers=80&q=komodo${jam}${extra}`);
-await page.waitForFunction(() => document.title === 'ready', null, { timeout: 120000 });
+// Halaman deterministik: memuat ulang selalu menghasilkan urutan kejadian yang sama.
+async function fresh() {
+  await page.goto(`http://localhost:${srv.port}/?sim=1&simgift=0&capture=1&seed=7&viewers=80&q=komodo${jam}${extra}`);
+  await page.waitForFunction(() => document.title === 'ready', null, { timeout: 120000 });
+}
+await fresh();
 
 // Jalankan ffmpeg; kembalikan stderr kalau diminta (untuk hasil ukur loudnorm).
 function run(args, wantStderr = false) {
@@ -46,68 +50,110 @@ function run(args, wantStderr = false) {
 const step = (ms, draw = true) => page.evaluate(([a, b]) => window.__step(a, b), [ms, draw]);
 const settle = () => page.evaluate(() => Promise.all([...document.images].map((i) => i.decode().catch(() => {}))));
 
+// Gift buatan dari salah satu penonton simulasi (supaya fotonya ikut tampil).
+const GIFT = {
+  kecil: { gift: 'Mawar', count: 3, coins: 3 },
+  sedang: { gift: 'Topi Koboi', count: 1, coins: 99 },
+  besar: { gift: 'Paus', count: 1, coins: 500 },
+};
+const inject = (tier, viewer) => page.evaluate(([g, i]) => {
+  const all = window.__quiz.sim.viewers;
+  const v = all.slice(i).find((x) => x.avatar) ?? all[i]; // utamakan yang punya foto
+  window.__quiz.engine.handle({ type: 'gift', user: v.user, name: v.name, avatar: v.avatar, ...g }, window.__quiz.now());
+}, [GIFT[tier], viewer]);
+
+// q: nomor soal, 'negara'/'provinsi' (soal tebak lokasi), atau null.
+const matches = (s, phase, q) => s.phase === phase && s.round === 1
+  && (q === null || (typeof q === 'number' ? s.q === q : s.gen === q));
+
 // Lompat tanpa menggambar sampai satu frame sebelum titik `start` (ms) di fase dan soal
-// yang dicari, di ronde 1.
-async function moveTo(phase, q, start) {
-  const match = (s) => s.phase === phase && s.round === 1 && (q === null || s.q === q);
+// yang dicari, di ronde 1. gifts: [{ at, tier, viewer }] disuntik saat waktunya lewat.
+async function moveTo(phase, q, start, gifts = []) {
   let s = await step(0, false);
-  for (let i = 0; !(match(s) && s.elapsed <= start); i++) {
-    if (i > 20000) throw new Error(`fase ${phase} soal ${q} tidak ketemu`);
+  for (let i = 0; !(matches(s, phase, q) && s.elapsed <= start); i++) {
+    if (i > 20000 || s.round > 1) throw new Error(`fase ${phase} soal ${q} tidak ketemu`);
     s = await step(100, false);
   }
+  const pending = gifts.filter((g) => g.at < start).sort((a, b) => a.at - b.at);
   // Maju bertahap supaya event simulasi tetap tercatat di waktunya masing-masing.
-  while (start - FRAME - s.elapsed > 0.5) s = await step(Math.min(100, start - FRAME - s.elapsed), false);
+  while (start - FRAME - s.elapsed > 0.5) {
+    if (pending.length && s.elapsed >= pending[0].at) {
+      const g = pending.shift();
+      await inject(g.tier, g.viewer);
+      continue;
+    }
+    const stop = pending.length ? Math.min(pending[0].at, start - FRAME) : start - FRAME;
+    s = await step(Math.max(0.5, Math.min(100, stop - s.elapsed)), false);
+  }
+  for (const g of pending) await inject(g.tier, g.viewer);
   return s;
 }
 
+// [fase, soal, ms dalam fase, gift]
 const SHOTS = [
   ['rules', null, 4000],
   ['intro', 1, 2500],
-  ['answer', 1, 9000],
+  ['answer', 1, 7000, [{ at: 5500, tier: 'kecil', viewer: 3 }]],
+  ['answer', 1, 12000, [{ at: 9500, tier: 'sedang', viewer: 8 }]],
+  ['answer', 1, 16000, [{ at: 14800, tier: 'besar', viewer: 11 }]],
   ['reveal', 1, 4000],
   ['winners', 1, 4500],
-  ['answer', 2, 17500],
-  ['reveal', 2, 4000],
+  ['answer', 'negara', 9000],
+  ['reveal', 'negara', 4000],
+  ['answer', 'provinsi', 9000],
+  ['reveal', 'provinsi', 4000],
   ['board', 5, 4000],
   ['podium', 10, 5000],
   ['standings', 10, 4000],
+  ['vote', 10, 9000],
 ];
 
 if (mode === 'stills') {
   fs.mkdirSync(out, { recursive: true });
-  for (const [phase, q, at] of SHOTS) {
-    await moveTo(phase, q, at);
+  for (const [phase, q, at, gifts] of SHOTS) {
+    // Urutan soal tebak lokasi acak di dalam ronde; kalau targetnya sudah lewat, mulai ulang.
+    await moveTo(phase, q, at, gifts).catch(async () => {
+      await fresh();
+      await moveTo(phase, q, at, gifts);
+    });
     await step(FRAME, true);
     await settle();
     await step(0, true);
-    const file = path.join(out, `${phase}${q ? `-q${q}` : ''}.png`);
+    const file = path.join(out, `${phase}${q ? `-${q}` : ''}${gifts ? `-${gifts[0].tier}` : ''}.png`);
     await page.screenshot({ path: file });
     console.log('still', file);
   }
 } else {
-  // Segmen [fase, soal, mulai, durasi] dalam ms; disambung dengan cut keras.
+  // Segmen [fase, soal, mulai, durasi, gift] dalam ms; disambung dengan cut keras.
   const SEGMENTS = [
-    ['rules', null, 0, 3200],
-    ['intro', 1, 0, 3500],
-    ['answer', 1, 0, 7000],
-    ['answer', 1, 15500, 4500],
-    ['reveal', 1, 0, 7500],
-    ['winners', 1, 0, 7000],
-    ['board', 5, 0, 5000],
-    ['podium', 10, 0, 7500],
-    ['standings', 10, 0, 4500],
+    ['rules', null, 0, 3500],
+    ['intro', 1, 0, 3000],
+    ['answer', 1, 1000, 9500, [{ at: 2500, tier: 'kecil', viewer: 3 }, { at: 6500, tier: 'sedang', viewer: 8 }]],
+    ['answer', 1, 12500, 9000, [{ at: 13000, tier: 'besar', viewer: 11 }]],
+    ['reveal', 1, 0, 6500],
+    ['winners', 1, 0, 6000],
+    ['answer', 'negara', 1000, 6000],
+    ['reveal', 'negara', 0, 5500],
+    ['answer', 'provinsi', 1000, 5000],
+    ['reveal', 'provinsi', 0, 5000],
+    ['podium', 10, 0, 7000],
+    ['standings', 10, 0, 5500],
+    ['vote', 10, 0, 9000],
   ];
   const tmpVideo = `${out}.video.mp4`;
   const ff = spawn('ffmpeg', ['-v', 'error', '-y', '-f', 'image2pipe', '-c:v', 'mjpeg', '-r', String(FPS), '-i', '-',
     '-c:v', 'libx264', '-preset', 'medium', '-crf', '20', '-pix_fmt', 'yuv420p', tmpVideo], { stdio: ['pipe', 'inherit', 'inherit'] });
   const audio = [];
   let offset = 0;
-  for (const [phase, q, start, dur] of SEGMENTS) {
-    const s = await moveTo(phase, q, start);
+  for (const [phase, q, start, dur, gifts = []] of SEGMENTS) {
+    const s = await moveTo(phase, q, start, gifts);
+    const later = gifts.filter((g) => g.at >= start).sort((a, b) => a.at - b.at);
     const logStart = await page.evaluate(() => window.__quiz.sound.log.length);
     const t0 = s.now + FRAME;
     const frames = Math.round(dur / FRAME);
     for (let i = 0; i < frames; i++) {
+      const at = start + i * FRAME;
+      while (later.length && later[0].at <= at) await inject(later[0].tier, later.shift().viewer);
       await step(FRAME, true);
       if (i === 0) await settle();
       const jpg = await page.screenshot({ type: 'jpeg', quality: 92 });

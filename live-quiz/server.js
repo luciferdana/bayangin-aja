@@ -89,7 +89,10 @@ async function connectTikTok(username, broadcast, status) {
     // Gift beruntun (giftType 1) baru dihitung saat beruntunnya selesai.
     if (d.giftDetails?.giftType === 1 && !d.repeatEnd) return;
     const gift = d.giftDetails?.giftName || d.extendedGiftInfo?.name || 'hadiah';
-    broadcast({ type: 'gift', ...who(d), gift, count: Number(d.repeatCount) || 1 });
+    const count = Number(d.repeatCount) || 1;
+    // Nilai koin hanya untuk menentukan tingkat boost, tidak pernah ditampilkan.
+    const each = Number(d.giftDetails?.diamondCount ?? d.extendedGiftInfo?.diamond_count) || 1;
+    broadcast({ type: 'gift', ...who(d), gift, count, coins: each * count });
   });
   conn.on(WebcastEvent.FOLLOW, (d) => broadcast({ type: 'follow', ...who(d) }));
   conn.on(WebcastEvent.SHARE, (d) => broadcast({ type: 'share', ...who(d) }));

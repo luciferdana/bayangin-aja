@@ -4,7 +4,8 @@
 const FIRST = ['budi', 'rina', 'dodi', 'sari', 'agus', 'wulan', 'yoga', 'putri', 'bayu', 'nisa',
   'rizky', 'dewi', 'fajar', 'intan', 'galih', 'ayu', 'eko', 'lala', 'hendra', 'mega', 'tono', 'citra'];
 const CHAT = ['halo kak', 'wkwk', 'susah bgt', 'gampang ini', 'ikut ya', 'mantap', 'lanjut', 'hadir'];
-const GIFTS = ['Mawar', 'Donat', 'Jari Hati', 'Topi Koboi'];
+// [nama gift, koin] kira-kira seperti gift TikTok; sebagian besar gift kecil.
+const GIFTS = [['Mawar', 1], ['Mawar', 1], ['Jari Hati', 5], ['Donat', 30], ['Topi Koboi', 99], ['Paus', 500]];
 const SKILL = { mudah: 0.85, sedang: 0.6, sulit: 0.35 };
 
 // Foto profil buatan: gradasi kalem + siluet, sebagai data URI SVG.
@@ -37,8 +38,10 @@ function typed(text, rng) {
 }
 
 export class Sim {
-  constructor(engine, rng, { viewers = 60 } = {}) {
+  // gifts=false: tanpa gift acak (render preview menyuntik gift sendiri di waktu tertentu).
+  constructor(engine, rng, { viewers = 60, gifts = true } = {}) {
     this.engine = engine;
+    this.gifts = gifts;
     this.rng = rng;
     this.viewers = Array.from({ length: viewers }, (_, i) => {
       const name = FIRST[i % FIRST.length] + (i >= FIRST.length ? `_${i}` : '');
@@ -55,6 +58,7 @@ export class Sim {
     if (key !== this.lastKey) {
       this.lastKey = key;
       if (e.phase === 'answer') this.planAnswers(now);
+      if (e.phase === 'vote') this.planVotes(now);
     }
     while (this.queue.length && this.queue[0].at <= now) e.handle(this.queue.shift().evt, now);
 
@@ -64,13 +68,31 @@ export class Sim {
     const per = (ratePerSec) => r() < (ratePerSec * dt) / 1000;
     if (per(0.6)) e.handle({ type: 'comment', ...this.pick(), text: CHAT[Math.floor(r() * CHAT.length)] }, now);
     if (per(1.5)) e.handle({ type: 'like', ...this.pick(), count: 3 + Math.floor(r() * 15) }, now);
-    if (per(0.05)) e.handle({ type: 'gift', ...this.pick(), gift: GIFTS[Math.floor(r() * GIFTS.length)], count: 1 + Math.floor(r() * 3) }, now);
+    if (this.gifts && per(0.05)) {
+      const [gift, coins] = GIFTS[Math.floor(r() * GIFTS.length)];
+      const count = coins < 10 ? 1 + Math.floor(r() * 3) : 1;
+      e.handle({ type: 'gift', ...this.pick(), gift, count, coins: coins * count }, now);
+    }
     if (per(0.04)) e.handle({ type: 'follow', ...this.pick() }, now);
   }
 
   pick() {
     const v = this.viewers[Math.floor(this.rng() * this.viewers.length)];
     return { user: v.user, name: v.name, avatar: v.avatar };
+  }
+
+  planVotes(now) {
+    const opts = this.engine.vote.options;
+    const r = this.rng;
+    // Selera penonton tidak rata: satu tema cenderung lebih populer.
+    const fav = Math.floor(r() * opts.length);
+    for (const v of this.viewers) {
+      if (r() < 0.35) continue;
+      const pick = r() < 0.45 ? fav : Math.floor(r() * opts.length);
+      const text = r() < 0.7 ? opts[pick].keyword : opts[pick].label.toLowerCase();
+      this.queue.push({ at: now + 800 + r() * 10000, evt: { type: 'comment', user: v.user, name: v.name, avatar: v.avatar, text } });
+    }
+    this.queue.sort((a, b) => a.at - b.at);
   }
 
   planAnswers(now) {

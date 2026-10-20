@@ -6,6 +6,7 @@
   "scripts": {
     "start": "node server.js",
     "test": "node --test test/*.test.js",
+    "geo": "node scripts/build-geo.mjs",
     "map": "node scripts/build-map.mjs",
     "music": "python3 scripts/make-music.py",
     "stills": "node scripts/capture.mjs stills",

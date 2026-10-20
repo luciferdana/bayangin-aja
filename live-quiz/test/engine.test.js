@@ -90,7 +90,8 @@ test('soal tidak berulang sampai bank habis', () => {
 test('rumus skor: dasar per tingkat, bonus cepat, beruntun', () => {
   const e = make();
   const A = DEFAULTS.answerMs;
-  assert.deepEqual(e.pointsFor('mudah', 0, 1), { base: 100, bonus: 50, streakPts: 0, total: 150 });
+  assert.deepEqual(e.pointsFor('mudah', 0, 1), { base: 100, bonus: 50, streakPts: 0, mult: 1, total: 150 });
+  assert.equal(e.pointsFor('mudah', 0, 1, 2).total, 300);
   assert.equal(e.pointsFor('sedang', A / 2, 1).total, 150 + 38);
   assert.equal(e.pointsFor('sulit', A, 1).total, 200);
   assert.equal(e.pointsFor('sulit', A, 3).total, 250);
@@ -217,23 +218,129 @@ test('papan skor setelah soal 5, podium dan klasemen di akhir ronde', () => {
   assert.ok(seq.includes('board5'));
   assert.ok(!seq.includes('board10'));
   const i = seq.indexOf('podium10');
-  assert.ok(i > 0 && seq[i + 1] === 'standings10' && seq[i + 2] === 'rules0');
+  assert.ok(i > 0 && seq[i + 1] === 'standings10' && seq[i + 2] === 'vote10' && seq[i + 3] === 'rules0');
   assert.equal(e.view(t).roundBoard.length, 0); // skor ronde direset
   assert.equal(e.view(t).standings[0].name, 'Satu'); // klasemen sesi tetap
   assert.equal(e.view(t).standings[0].correct, 10);
 });
 
-test('gift dan follow jadi toast, maksimal 3', () => {
+test('follow dan share jadi toast, maksimal 3', () => {
   const e = make();
   e.start(0);
-  for (let i = 0; i < 5; i++) e.handle({ type: 'gift', name: `g${i}`, gift: 'Mawar', count: 2 }, i);
+  for (let i = 0; i < 5; i++) e.handle({ type: 'share', name: `s${i}` }, i);
   e.handle({ type: 'follow', name: 'Budi' }, 10);
   const v = e.view(10);
   assert.equal(v.toasts.length, 3);
   assert.equal(v.toasts.at(-1).name, 'Budi');
-  assert.match(v.toasts[1].text, /Mawar x2/);
   e.tick(10 + DEFAULTS.toastMs + 1);
   assert.equal(e.view(10 + DEFAULTS.toastMs + 1).toasts.length, 0);
+});
+
+test('gift: tingkat dari koin, boost, sorotan berantre, combo digabung', () => {
+  const e = make();
+  e.start(0);
+  e.handle({ type: 'gift', user: 'a', name: 'A', gift: 'Mawar', count: 1, coins: 1 }, 10);
+  e.handle({ type: 'gift', user: 'a', name: 'A', gift: 'Mawar', count: 4, coins: 4 }, 20); // combo
+  e.handle({ type: 'gift', user: 'b', name: 'B', gift: 'Topi', count: 1, coins: 99 }, 30);
+  e.handle({ type: 'gift', user: 'c', name: 'C', gift: 'Paus', count: 1, coins: 500 }, 40);
+  e.tick(50);
+  let v = e.view(50);
+  assert.equal(v.spotlight.name, 'A');
+  assert.equal(v.spotlight.count, 5);
+  assert.equal(v.spotlight.tier, 'kecil');
+  assert.ok(!('coins' in v.spotlight)); // nilai koin tidak pernah dibawa ke tampilan
+  assert.deepEqual(e.players.get('a').boost, { mult: 2, left: 2 }); // 1 + 1 soal
+  assert.deepEqual(e.players.get('b').boost, { mult: 2, left: 3 });
+  assert.deepEqual(e.players.get('c').boost, { mult: 3, left: 3 });
+  let t = 50;
+  const seen = [];
+  for (; t < 30000; t += 100) {
+    e.tick(t);
+    const s = e.view(t).spotlight;
+    if (s && seen.at(-1) !== s.name) seen.push(s.name);
+  }
+  assert.deepEqual(seen, ['A', 'B', 'C']);
+  assert.deepEqual(e.view(t).supporters.map((x) => x.name), ['C', 'B', 'A']);
+});
+
+test('boost mengalikan poin jawaban benar dan habis setelah dipakai', () => {
+  const e = make();
+  e.start(0);
+  e.handle({ type: 'gift', user: 'u1', name: 'Satu', gift: 'Mawar', coins: 1 }, 1);
+  let t = advanceTo(e, 'answer');
+  e.handle({ type: 'comment', user: 'u1', name: 'Satu', text: letter(e.current.q.answer) }, t + 1000);
+  e.handle({ type: 'comment', user: 'u2', name: 'Dua', text: letter(e.current.q.answer) }, t + 1000);
+  t = advanceTo(e, 'reveal', t);
+  const [w1, w2] = e.view(t).winners;
+  assert.equal(w1.mult, 2);
+  assert.equal(w1.points, w2.points * 2);
+  assert.equal(e.players.get('u1').boost, null);
+});
+
+test('gift besar menghentikan timer, jawaban saat berhenti tidak kehilangan bonus', () => {
+  const e = make({ startWith: 'jupiter' });
+  e.start(0);
+  const t = advanceTo(e, 'answer');
+  e.handle({ type: 'gift', user: 'c', name: 'C', gift: 'Paus', coins: 500 }, t + 5000);
+  e.tick(t + 5000);
+  const big = DEFAULTS.giftTiers[2].ms;
+  const v = e.view(t + 6000);
+  assert.ok(v.frozen);
+  assert.equal(v.remaining, DEFAULTS.answerMs - 5000); // timer diam
+  e.handle({ type: 'comment', user: 'u1', text: letter(e.current.q.answer) }, t + 7000);
+  assert.equal(e.current.answers.get('u1').ms, 5000);
+  e.tick(t + 5000 + big + 1000);
+  assert.equal(e.view(t + 5000 + big + 1000).remaining, DEFAULTS.answerMs - 6000);
+  assert.equal(e.phaseEnd, t + DEFAULTS.answerMs + big);
+});
+
+test('gift sedang saat menjawab membuka 50:50 atas nama pemberi', () => {
+  const e = make({ startWith: 'jupiter' });
+  e.start(0);
+  const t = advanceTo(e, 'answer');
+  e.handle({ type: 'gift', user: 'b', name: 'Bima', gift: 'Topi', coins: 30 }, t + 100);
+  e.tick(t + 100);
+  const v = e.view(t + 100);
+  assert.equal(v.removed.length, 2);
+  assert.equal(v.hintBy, 'Bima');
+});
+
+test('voting tema: suara terbanyak menang, gift menambah bobot', () => {
+  const e = make({ generators: { negara: () => null, provinsi: () => null } });
+  e.start(0);
+  let t = 0;
+  while (e.phase !== 'vote') { t = Math.max(t, e.phaseEnd); e.tick(t); }
+  const v = e.view(t).vote;
+  assert.equal(v.options.length, 4);
+  assert.ok(!v.options.some((o) => o.id === 'campuran')); // tema ronde ini tidak ditawarkan lagi
+  assert.ok(v.options.some((o) => o.id === 'negara' || o.id === 'provinsi'));
+  const [a, b] = v.options;
+  e.handle({ type: 'comment', user: 'x1', text: a.keyword }, t + 10);
+  e.handle({ type: 'comment', user: 'x2', text: a.keyword }, t + 10);
+  e.handle({ type: 'comment', user: 'x3', text: b.label.toUpperCase() }, t + 10);
+  e.handle({ type: 'gift', user: 'x3', name: 'X3', gift: 'Mawar', coins: 1 }, t + 20);
+  assert.deepEqual(e.view(t + 20).vote.options.slice(0, 2).map((o) => o.votes), [2, 1 + DEFAULTS.giftTiers[0].vote]);
+  t = Math.max(t, e.phaseEnd);
+  e.tick(t);
+  assert.equal(e.phase, 'rules');
+  assert.equal(e.view(t).theme.id, b.id);
+});
+
+test('ronde bertema mengambil soal dari kategorinya', () => {
+  const e = make({ theme: 'olahraga' });
+  e.start(0);
+  const olahraga = QUESTIONS.filter((q) => q.cat === 'Olahraga').length;
+  const n = e.questions.filter((q) => q.cat === 'Olahraga').length;
+  assert.ok(n >= Math.min(10, olahraga) - 1, `${n} soal olahraga`);
+  assert.equal(e.view(0).theme.label, 'Olahraga');
+});
+
+test('matchAnswer: potongan terpanjang menang', () => {
+  const m = buildMatcher({ options: ['Papua', 'Papua Barat', 'Papua Tengah', 'Maluku'] });
+  assert.equal(matchAnswer('papua', m), 0);
+  assert.equal(matchAnswer('papua barat', m), 1);
+  assert.equal(matchAnswer('Papua Tengah', m), 2);
+  assert.equal(matchAnswer('papua tengh', m), 2);
 });
 
 test('opsi diacak tapi jawaban tetap benar', () => {

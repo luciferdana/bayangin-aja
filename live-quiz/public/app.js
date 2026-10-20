@@ -1,10 +1,11 @@
 // Kuis Bayangin Aja: menyatukan mesin kuis, sumber event (TikTok lewat server, atau
-// simulasi), Bumi, scene, dan suara.
+// simulasi), Bumi, scene, sorotan gift, dan suara.
 //
 // Parameter URL:
-//   ?sim=1          penonton palsu (tanpa TikTok)    &viewers=60
+//   ?sim=1          penonton palsu (tanpa TikTok)    &viewers=60  &simgift=0 tanpa gift acak
 //   &speed=4        percepat waktu (uji)             &seed=7   hasil acak tetap
 //   &q=komodo       mulai dari soal tertentu         &like=100 target like bantuan
+//   &tema=negara    tema ronde pertama (campuran, sains, sejarah, olahraga, umum, negara, provinsi)
 //   &mute=1         tanpa suara                       &debug=1  tampilkan status koneksi
 //   &bumi=nyata     cahaya Bumi: nyata (sesuai jam), siang, senja
 //   &jam=2026-10-20T05:00:00Z   waktu awal untuk mode nyata (default: sekarang)
@@ -12,8 +13,9 @@
 import { QuizEngine, mulberry32, DEFAULTS } from './engine.js';
 import { QUESTIONS } from './questions.js';
 import { Sim } from './sim.js';
-import { SCENES } from './ui.js';
-import { loadMap } from './map.js';
+import { SCENES, lowerZone, spotlightLayer } from './ui.js';
+import { loadMap, loadGeo } from './map.js';
+import { makeGenerators } from './geoquiz.js';
 import { Sound } from './sfx.js';
 import { Globe } from './globe.js';
 
@@ -22,13 +24,13 @@ const num = (k, d) => (params.has(k) ? Number(params.get(k)) : d);
 const capture = params.has('capture');
 const speed = num('speed', 1);
 const seed = params.get('seed');
-const rng = seed ? mulberry32(Number(seed)) : Math.random;
 
 const stage = document.getElementById('stage');
 const sceneBox = document.getElementById('scene');
-const toastBox = document.getElementById('toasts');
 const connEl = document.getElementById('conn');
 const scrimHeavy = document.getElementById('scrimHeavy');
+const lower = lowerZone(document.getElementById('lower'));
+const spot = spotlightLayer(document.getElementById('spot'));
 
 function fitStage() {
   const s = Math.min(innerWidth / 1080, innerHeight / 1920);
@@ -42,21 +44,15 @@ let manualNow = 0;
 const t0 = performance.now();
 const clock = () => (capture ? manualNow : (performance.now() - t0) * speed);
 
-const engine = new QuizEngine(QUESTIONS, {
-  rng,
-  startWith: params.get('q'),
-  config: { hintLikes: num('like', DEFAULTS.hintLikes) },
-});
-const sim = params.has('sim') ? new Sim(engine, seed ? mulberry32(Number(seed) + 1) : Math.random, { viewers: num('viewers', 60) }) : null;
 const sound = new Sound({ muted: params.has('mute') || capture });
 const startDate = params.has('jam') ? new Date(params.get('jam')) : new Date();
 const globe = new Globe(document.getElementById('globe'), {
   mode: params.get('bumi') || 'nyata',
   date: (ms) => new Date(startDate.getTime() + ms / speed),
 });
-const ctx = { mapData: null };
-
-if (params.has('debug')) connEl.textContent = sim ? 'simulasi' : 'menunggu server';
+const ctx = { mapData: null, geoData: null };
+let engine = null;
+let sim = null;
 
 function connect() {
   if (sim) return;
@@ -82,11 +78,10 @@ let sceneKey = '';
 let firedCues = new Set();
 let heavy = 1;
 let last = null;
-let toastKey = '';
+let toastIds = new Set();
 
-function play(name, at) {
-  sound.play(name, at);
-}
+const play = (name, at) => sound.play(name, at);
+const SPOT_SOUND = { kecil: ['gift'], sedang: ['gift', 'podium'], besar: ['title', 'podium'] };
 
 function render(now) {
   const dt = last === null ? 0 : now - last;
@@ -118,60 +113,45 @@ function render(now) {
   heavy += (target - heavy) * (1 - Math.exp(-dt / 350));
   scrimHeavy.style.opacity = heavy.toFixed(3);
 
-  renderToasts(v, now);
+  lower.update(v);
+  const started = spot.update(v, now);
+  if (started) SPOT_SOUND[started.tier].forEach((n, i) => play(n, now + i * 350));
+
+  // Bunyi untuk toast follow/share/bantuan yang baru masuk.
+  const ids = new Set(v.toasts.map((t) => Math.round(now - t.age)));
+  for (const t of v.toasts) {
+    if (!toastIds.has(Math.round(now - t.age))) play(t.kind === 'hint' ? 'hint' : 'follow', now);
+  }
+  toastIds = ids;
 
   const q = v.question;
-  const focus = q?.map && (v.phase === 'reveal' || v.phase === 'winners') ? { lat: q.map.lat, lon: q.map.lon } : null;
+  const place = q?.focus ?? q?.map;
+  const focus = place && (v.phase === 'reveal' || v.phase === 'winners') ? { lat: place.lat, lon: place.lon } : null;
   globe.update(dt, now, focus);
-}
-
-// Toast dikenali dari waktu munculnya; bunyi hanya untuk toast yang baru masuk.
-let toastIds = new Set();
-function renderToasts(v, now) {
-  const ids = v.toasts.map((t) => Math.round(now - t.age));
-  const key = ids.join('|');
-  if (key !== toastKey) {
-    toastKey = key;
-    const fresh = v.toasts.filter((t, i) => !toastIds.has(ids[i]));
-    toastIds = new Set(ids);
-    for (const t of fresh) play(t.kind === 'hint' ? 'hint' : t.kind === 'gift' ? 'gift' : 'follow', now);
-    toastBox.replaceChildren(...v.toasts.map((t) => {
-      const n = document.createElement('div');
-      n.className = `toast mono ${t.kind}`;
-      if (t.name) {
-        const b = document.createElement('b');
-        b.className = 'user';
-        b.textContent = t.name;
-        n.append(b, ' ');
-      }
-      n.append(t.text);
-      return n;
-    }));
-  }
-  const nodes = toastBox.children;
-  v.toasts.forEach((t, i) => {
-    const n = nodes[i];
-    if (!n) return;
-    const pin = Math.min(1, t.age / 300);
-    const pout = Math.min(1, (DEFAULTS.toastMs - t.age) / 400);
-    const p = Math.max(0, Math.min(pin, pout));
-    n.style.opacity = p;
-    n.style.transform = `translateX(${(1 - p) * 40}px)`;
-  });
 }
 
 async function boot() {
   await Promise.all([
     document.fonts.ready,
     loadMap().then((m) => (ctx.mapData = m)),
+    loadGeo().then((g) => (ctx.geoData = g)),
     sound.init().catch(() => {}),
     globe.init().catch((e) => console.warn('Bumi gagal dimuat:', e)),
   ]);
+  engine = new QuizEngine(QUESTIONS, {
+    rng: seed ? mulberry32(Number(seed)) : Math.random,
+    startWith: params.get('q'),
+    theme: params.get('tema') || 'campuran',
+    generators: ctx.geoData ? makeGenerators(ctx.geoData) : {},
+    config: { hintLikes: num('like', DEFAULTS.hintLikes) },
+  });
+  if (params.has('sim')) sim = new Sim(engine, seed ? mulberry32(Number(seed) + 1) : Math.random, { viewers: num('viewers', 60), gifts: params.get('simgift') !== '0' });
+  if (params.has('debug')) connEl.textContent = sim ? 'simulasi' : 'menunggu server';
   connect();
   engine.start(clock());
   if (capture) {
     // Skrip render memanggil __step(ms) per frame lalu mengambil tangkapan layar.
-    window.__quiz = { engine, sound };
+    window.__quiz = { engine, sound, sim, now: () => manualNow };
     // draw=false hanya memajukan mesin dan simulasi (untuk melompati bagian yang tidak direkam).
     window.__step = (ms, draw = true) => {
       manualNow += ms;
@@ -182,7 +162,7 @@ async function boot() {
         sim?.step(manualNow);
       }
       const v = engine.view(manualNow);
-      return { phase: v.phase, round: v.round, q: v.qNumber, elapsed: v.elapsed, now: manualNow };
+      return { phase: v.phase, round: v.round, q: v.qNumber, gen: v.question?.gen ?? null, elapsed: v.elapsed, now: manualNow };
     };
     render(0);
     document.title = 'ready';

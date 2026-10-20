@@ -1,7 +1,7 @@
 // Scene per fase. Setiap scene: build(view) membuat DOM, update(view) menggerakkannya.
 // Semua animasi dihitung dari view.elapsed (bukan CSS transition), supaya hasil live dan
 // render frame-per-frame sama persis. Pergantian fase memakai cut keras.
-import { MapView, formatCoord } from './map.js';
+import { MapView, ShapeView, formatCoord } from './map.js';
 
 const clamp = (x) => Math.max(0, Math.min(1, x));
 const ease = (x) => 1 - (1 - x) ** 3;
@@ -107,7 +107,8 @@ function rules(v) {
   ];
   const title = el('div', 'ui btitle');
   title.append('CARA ', el('em', '', 'MAIN'));
-  const sub = el('div', 'ui bsub mono', `RONDE ${pad(v.round)} · ${v.qTotal || 10} SOAL · ${r.answerSec} DETIK PER SOAL`);
+  const sub = el('div', 'ui bsub mono');
+  sub.append(`RONDE ${pad(v.round)} · TEMA `, el('b', '', (v.theme?.label ?? 'Campuran').toUpperCase()), ` · ${v.qTotal || 10} SOAL · ${r.answerSec} DETIK`);
   const list = el('ol', 'ui steps');
   const items = steps.map((s, i) => {
     const li = el('li');
@@ -160,7 +161,7 @@ function intro(v) {
 }
 
 // ---------------------------------------------------------------- menjawab
-function answer(v) {
+function answer(v, ctx) {
   const q = v.question;
   const root = el('div');
   const n = v.rules.answerSec;
@@ -173,15 +174,27 @@ function answer(v) {
   ruler.append(ticks, clock);
 
   const cat = catLine(q);
-  const question = el('div', 'ui question');
+  const question = el('div', `ui question${q.shape ? ' short' : ''}`);
   const words = q.q.split(' ').map((w) => {
     const s = el('span', 'w', w);
     question.append(s, ' ');
     return s;
   });
 
+  // Soal tebak lokasi: peta besar di tengah, pilihan dipadatkan di bawahnya.
+  let shapeBox = null;
+  let shapeMap = null;
+  if (q.shape && ctx.geoData) {
+    shapeBox = el('div', 'ui mapbox shapeq');
+    const cv = el('canvas');
+    cv.width = 1904;
+    cv.height = 820;
+    shapeBox.append(cv, el('div', 'tag mono', q.source.toUpperCase()));
+    shapeMap = new ShapeView(cv, ctx.geoData, q.shape);
+  }
+
   const two = q.options.length === 2;
-  const list = el('ol', `ui options${two ? ' two' : ''}`);
+  const list = el('ol', `ui options${two ? ' two' : ''}${shapeBox ? ' compact shapeq' : ''}`);
   const rows = q.options.map((o) => {
     const li = el('li', 'opt');
     li.append(el('span', 'mk'), el('span', 't', o));
@@ -206,21 +219,23 @@ function answer(v) {
   assist.append(el('span', '', 'BANTUAN 50:50'), seg, alabel);
   if (two) assist.style.display = 'none';
 
-  root.append(head(v), ruler, cat, question, list, foot, assist);
+  root.append(head(v), ruler, cat, question, ...(shapeBox ? [shapeBox] : []), list, foot, assist);
   let stackKey = '';
   let lastSec = null;
   const self = {
     node: root,
     cues: [],
     mount() {
-      fit(question, { max: 84, min: 44, height: 340 });
-      for (const r of rows) fit(r.querySelector('.t'), { max: two ? 64 : 50, min: 28, oneLine: true });
+      fit(question, shapeBox ? { max: 54, min: 36, height: 90 } : { max: 84, min: 44, height: 340 });
+      for (const r of rows) fit(r.querySelector('.t'), { max: shapeBox ? 36 : two ? 64 : 50, min: 24, oneLine: true });
+      shapeMap?.draw(null, 0, 0);
     },
     update(v, sound) {
       const t = v.elapsed;
       rise(ruler, prog(t, 0, 300), 10);
       rise(cat, prog(t, 80, 400));
       words.forEach((w, i) => rise(w, prog(t, 120 + i * 35, 420), 22));
+      if (shapeBox) rise(shapeBox, prog(t, 200, 500), 16);
       rows.forEach((r, i) => slide(r, prog(t, 350 + i * 110, 450), 40));
       rise(foot, prog(t, 800, 400));
       rise(assist, prog(t, 900, 400));
@@ -245,7 +260,8 @@ function answer(v) {
       segs.forEach((s, i) => s.classList.toggle('on', i < on));
       const done = v.removed.length > 0;
       assist.classList.toggle('done', done);
-      alabel.textContent = done ? 'DUA PILIHAN DICORET' : `${got}/${v.hintLikes} LIKE`;
+      alabel.textContent = v.hintBy ? `DIBUKA OLEH @${v.hintBy}` : done ? 'DUA PILIHAN DICORET' : `${got}/${v.hintLikes} LIKE`;
+      clock.classList.toggle('frozen', v.frozen);
     },
   };
   return self;
@@ -263,7 +279,16 @@ function reveal(v, ctx) {
 
   let map = null;
   let mapBox = null;
-  if (q.map && ctx.mapData) {
+  let shapeMap = null;
+  if (q.shape && ctx.geoData) {
+    mapBox = el('div', 'ui mapbox');
+    const cv = el('canvas');
+    cv.width = 1904;
+    cv.height = 576;
+    const [lon, lat] = ctx.geoData[q.shape.kind === 'provinsi' ? 'provinces' : 'countries'][q.shape.name].center;
+    mapBox.append(cv, el('div', 'coord mono', formatCoord(lat, lon > 180 ? lon - 360 : lon)), el('div', 'tag mono', q.source.toUpperCase()));
+    shapeMap = new ShapeView(cv, ctx.geoData, q.shape);
+  } else if (q.map && ctx.mapData) {
     mapBox = el('div', 'ui mapbox');
     const cv = el('canvas');
     cv.width = 1904;
@@ -331,7 +356,8 @@ function reveal(v, ctx) {
       }
       if (mapBox) {
         rise(mapBox, prog(t, 500, 500), 16);
-        map.draw(q.map, prog(t, 1000, 700), t);
+        if (shapeMap) shapeMap.draw(q.options[q.answer], prog(t, 1000, 700), t);
+        else map.draw(q.map, prog(t, 1000, 700), t);
       }
       rise(fakta, prog(t, 900, 500));
       rise(stats, prog(t, 1500, 400));
@@ -353,6 +379,7 @@ function winners(v) {
     const meta = el('div', 'meta mono');
     meta.append(el('span', '', fmtSec(w.ms)));
     if (w.streak >= v.rules.streakFrom) meta.append(el('span', 'streak', `${w.streak}X BERUNTUN`));
+    if (w.mult > 1) meta.append(el('span', 'streak', `BOOST x${w.mult}`));
     who.append(el('div', 'n', w.name), meta);
     const pts = el('div', 'pts', '+0');
     c.append(el('span', 'r', pad(i + 1)), avatar(w, 96), who, pts);
@@ -408,7 +435,7 @@ function winners(v) {
 }
 
 // ---------------------------------------------------------------- papan skor / klasemen
-function leaderboard(v, { titleParts, subText, entries, dense, nextLabel }) {
+function leaderboard(v, { titleParts, subText, entries, dense, nextLabel, fans = [] }) {
   const root = el('div');
   const title = el('div', 'ui btitle');
   title.append(titleParts[0], el('em', '', titleParts[1]));
@@ -420,7 +447,9 @@ function leaderboard(v, { titleParts, subText, entries, dense, nextLabel }) {
     rows = entries.map((e, i) => {
       const li = el('li');
       const s = el('span', 's', '0');
-      li.append(el('span', 'r', pad(i + 1)), avatar(e, dense ? 52 : 72), el('span', 'n', e.name), el('span', 'c', `${e.correct} BENAR`), s);
+      const c = el('span', 'c', `${e.correct} BENAR`);
+      if (e.boost > 1) c.prepend(el('span', 'boost', `x${e.boost}`), ' ');
+      li.append(el('span', 'r', pad(i + 1)), avatar(e, dense ? 52 : 72), el('span', 'n', e.name), c, s);
       list.append(li);
       return { li, s, score: e.score };
     });
@@ -432,6 +461,21 @@ function leaderboard(v, { titleParts, subText, entries, dense, nextLabel }) {
   const nb = el('b');
   next.append(el('span', '', nextLabel), nb);
   parts.push(next);
+  // Pendukung live: yang mengirim gift selama sesi ini, terbaru dulu.
+  let fanBox = null;
+  if (fans.length) {
+    fanBox = el('div', 'ui fans');
+    const ft = el('div', 'fans-title mono');
+    ft.append(el('b', '', 'PENDUKUNG LIVE'), ' · MAKASIH GIFT-NYA');
+    const row = el('div', 'fans-row');
+    for (const f of fans.slice(0, 9)) {
+      const c = el('div', 'fan');
+      c.append(avatar(f, 64), el('span', 'nm user', f.name));
+      row.append(c);
+    }
+    fanBox.append(ft, row);
+    parts.push(fanBox);
+  }
   root.append(...parts);
   const stagger = dense ? 110 : 160;
   return {
@@ -446,6 +490,7 @@ function leaderboard(v, { titleParts, subText, entries, dense, nextLabel }) {
         countUp(r.s, r.score, prog(t, 500 + i * stagger, 800), (x) => x.toLocaleString('id-ID'));
       });
       rise(next, prog(t, 600, 400));
+      if (fanBox) rise(fanBox, prog(t, 1600, 500));
       nb.textContent = secs(v.remaining);
     },
   };
@@ -466,7 +511,8 @@ function standings(v) {
     subText: `TOTAL SKOR SEJAK LIVE DIMULAI · ${v.playerCount} PEMAIN`,
     entries: v.standings,
     dense: true,
-    nextLabel: `RONDE ${pad(v.round + 1)} MULAI DALAM`,
+    nextLabel: 'PILIH TEMA RONDE BERIKUTNYA DALAM',
+    fans: v.supporters,
   });
 }
 
@@ -513,4 +559,203 @@ function podium(v) {
   };
 }
 
-export const SCENES = { rules, intro, answer, reveal, winners, board, podium, standings };
+// ---------------------------------------------------------------- voting tema
+function vote(v) {
+  const root = el('div');
+  const title = el('div', 'ui btitle');
+  title.append('PILIH ', el('em', '', 'TEMA'));
+  const sub = el('div', 'ui bsub mono', `RONDE ${pad(v.round + 1)} · KETIK NAMA TEMANYA DI KOMENTAR`);
+  const list = el('ol', 'ui votes');
+  const rows = v.vote.options.map((o) => {
+    const li = el('li', 'vrow');
+    const bar = el('span', 'vbar');
+    const n = el('span', 'vn', '0');
+    const who = el('div', 'vw');
+    who.append(el('span', 'kw', o.keyword.toUpperCase()), el('span', 'lb mono', o.label.toLowerCase() === o.keyword ? '' : o.label.toUpperCase()));
+    li.append(bar, who, n);
+    list.append(li);
+    return { li, bar, n };
+  });
+  const next = el('div', 'ui next mono');
+  const nb = el('b');
+  const voters = el('span');
+  next.append(voters, nb);
+  root.append(head(v, null, { right: 'ronde' }), title, sub, list, next);
+  return {
+    node: root,
+    cues: [{ at: 0, name: 'title' }, ...rows.map((_, i) => ({ at: 400 + i * 150, name: 'row' }))],
+    update(v) {
+      const t = v.elapsed;
+      rise(title, prog(t, 0, 450));
+      rise(sub, prog(t, 120, 450));
+      const opts = v.vote?.options ?? [];
+      const max = Math.max(1, ...opts.map((o) => o.votes));
+      const lead = opts.findIndex((o) => o.votes === max && o.votes > 0);
+      rows.forEach((r, i) => {
+        slide(r.li, prog(t, 400 + i * 150, 450), 60);
+        const votes = opts[i]?.votes ?? 0;
+        r.n.textContent = votes;
+        r.bar.style.transform = `scaleX(${votes / max})`;
+        r.li.classList.toggle('lead', i === lead);
+      });
+      voters.textContent = `${v.vote?.voters ?? 0} PEMILIH · RONDE ${pad(v.round + 1)} DALAM`;
+      rise(next, prog(t, 900, 400));
+      nb.textContent = secs(v.remaining);
+    },
+  };
+}
+
+export const SCENES = { rules, intro, answer, reveal, winners, board, podium, standings, vote };
+
+// ---------------------------------------------------------------- zona bawah
+// Klasemen live mini di area bawah selama kuis berjalan, plus ucapan follow/share terbaru.
+const LOWER_PHASES = new Set(['intro', 'answer', 'reveal', 'winners']);
+
+export function lowerZone(box) {
+  const wrap = el('div', 'lower');
+  const headRow = el('div', 'lower-head mono');
+  const label = el('span');
+  const toast = el('span', 'lower-toast');
+  headRow.append(label, toast);
+  const chips = el('div', 'chips5');
+  wrap.append(headRow, chips);
+  box.append(wrap);
+  let key = '';
+  let toastKey = '';
+  return {
+    update(v) {
+      const show = LOWER_PHASES.has(v.phase) && !(v.spotlight && v.spotlight.tier !== 'besar') && v.standings.length > 0;
+      wrap.style.opacity = show ? 1 : 0;
+      if (!show) return;
+      label.replaceChildren(el('b', '', 'KLASEMEN LIVE'), ` · ${v.playerCount} PEMAIN`);
+      const k = v.standings.slice(0, 5).map((e) => `${e.user}:${e.score}:${e.boost}`).join('|');
+      if (k !== key) {
+        key = k;
+        chips.replaceChildren(...v.standings.slice(0, 5).map((e, i) => {
+          const c = el('div', 'chip5');
+          const top = el('div', 'c5top');
+          top.append(el('span', 'c5r', pad(i + 1)), avatar(e, 56));
+          if (e.boost > 1) top.append(el('span', 'boost', `x${e.boost}`));
+          c.append(top, el('span', 'c5n user', e.name), el('span', 'c5s', e.score.toLocaleString('id-ID')));
+          return c;
+        }));
+      }
+      const tst = v.toasts.at(-1);
+      const tk = tst ? `${tst.name}${tst.text}` : '';
+      if (tk !== toastKey) {
+        toastKey = tk;
+        toast.replaceChildren(...(tst ? [el('b', 'user', tst.name ? `${tst.name} ` : ''), tst.text.toUpperCase()] : []));
+      }
+      toast.style.opacity = tst ? Math.min(1, tst.age / 300, (4500 - tst.age) / 400) : 0;
+    },
+  };
+}
+
+// ---------------------------------------------------------------- sorotan gift
+// kecil/sedang: kartu di zona bawah. besar: layar penuh, timer kuis berhenti.
+// Nilai koin tidak pernah ditampilkan; yang tampil foto, nama, gift, dan boost.
+export function spotlightLayer(box) {
+  let cur = null; // { id, node, parts }
+  let lastCount = 0;
+  let bumpAt = -1e9;
+
+  function build(s) {
+    const node = el('div', `spot ${s.tier}`);
+    const parts = {};
+    if (s.tier === 'besar') {
+      const dim = el('div', 'spot-dim');
+      const label = el('div', 'spot-label mono', 'SULTAN MASUK');
+      const ringBox = el('div', 'spot-rings');
+      const rings = [0, 1, 2].map(() => ringBox.appendChild(el('span', 'ring')));
+      const av = avatar(s, 320);
+      ringBox.append(av);
+      const burst = el('div', 'burst');
+      const bits = Array.from({ length: 36 }, (_, i) => {
+        const b = burst.appendChild(el('i'));
+        const a = (i / 36) * Math.PI * 2 + (i % 3) * 0.13;
+        return { b, dx: Math.cos(a), dy: Math.sin(a), d: 260 + (i % 5) * 70 };
+      });
+      ringBox.append(burst);
+      const name = el('div', 'spot-name user', s.name);
+      const gift = el('div', 'spot-gift mono');
+      const boost = el('div', 'spot-boost mono');
+      const note = el('div', 'spot-note mono', s.frozen ? 'WAKTU DIHENTIKAN SEJENAK' : '');
+      node.append(dim, label, ringBox, name, gift, boost, note);
+      Object.assign(parts, { dim, label, rings, av, bits, name, gift, boost, note });
+    } else {
+      const card = el('div', 'spot-card');
+      const wipe = el('span', 'spot-wipe');
+      const av = avatar(s, s.tier === 'sedang' ? 168 : 112);
+      const who = el('div', 'spot-who');
+      const name = el('div', 'spot-name user', s.name);
+      const gift = el('div', 'spot-gift mono');
+      who.append(name, gift);
+      if (s.hintGiven) who.append(el('div', 'spot-hint mono', 'BANTUAN 50:50 DIBUKA UNTUK SEMUA'));
+      const boost = el('div', 'spot-boost');
+      card.append(wipe, av, who, boost);
+      node.append(card);
+      Object.assign(parts, { card, wipe, av, name, gift, boost });
+    }
+    box.replaceChildren(node);
+    return { id: s.id, node, parts };
+  }
+
+  return {
+    // Kembalikan id sorotan yang baru mulai (untuk bunyi), atau null.
+    update(v, now) {
+      const s = v.spotlight;
+      if (!s) {
+        if (cur) { box.replaceChildren(); cur = null; }
+        return null;
+      }
+      let started = null;
+      if (!cur || cur.id !== s.id) {
+        cur = build(s);
+        lastCount = s.count;
+        started = s;
+      }
+      if (s.count !== lastCount) { lastCount = s.count; bumpAt = now; }
+      const P = cur.parts;
+      const t = s.age;
+      const out = clamp((s.dur - t) / 400);
+      const giftLine = `KIRIM ${s.gift.toUpperCase()}${s.count > 1 ? ` x${s.count}` : ''}`;
+      P.gift.textContent = giftLine;
+      const bump = 1 + 0.12 * Math.max(0, 1 - (now - bumpAt) / 250);
+      P.gift.style.transform = `scale(${bump})`;
+      if (s.tier === 'besar') {
+        P.boost.textContent = `POIN x${s.mult} · ${s.questions} SOAL`;
+        P.dim.style.opacity = Math.min(prog(t, 0, 300), out);
+        rise(P.label, Math.min(prog(t, 150, 400), out), 20);
+        const pa = Math.min(prog(t, 200, 600), out);
+        P.av.style.opacity = pa;
+        P.av.style.transform = `scale(${0.6 + 0.4 * pa})`;
+        P.rings.forEach((r, i) => {
+          const ph = ((t + i * 600) % 1800) / 1800;
+          r.style.transform = `scale(${1 + ph * 0.55})`;
+          r.style.opacity = (1 - ph) * out * prog(t, 300, 300);
+        });
+        const pb = clamp((t - 350) / 1100);
+        P.bits.forEach(({ b, dx, dy, d }) => {
+          const e = ease(pb);
+          b.style.transform = `translate(${dx * d * e}px, ${dy * d * e}px) rotate(${e * 180}deg)`;
+          b.style.opacity = pb > 0 && pb < 1 ? 1 - pb : 0;
+        });
+        rise(P.name, Math.min(prog(t, 500, 500), out), 40);
+        rise(P.gift, Math.min(prog(t, 700, 400), out), 20);
+        rise(P.boost, Math.min(prog(t, 900, 400), out), 20);
+        rise(P.note, Math.min(prog(t, 1100, 400), out), 10);
+      } else {
+        P.boost.replaceChildren(el('b', '', `x${s.mult}`), el('span', 'mono', `POIN · ${s.questions} SOAL`));
+        const pin = prog(t, 0, 400);
+        const p = Math.min(pin, out);
+        P.card.style.opacity = p;
+        P.card.style.transform = `translateX(${(1 - pin) * -120}px)`;
+        P.wipe.style.transform = `scaleX(${1 - prog(t, 150, 500)})`;
+        P.av.style.transform = `scale(${0.7 + 0.3 * prog(t, 100, 400)})`;
+        rise(P.boost, prog(t, 350, 400), 16);
+      }
+      return started;
+    },
+  };
+}
+
