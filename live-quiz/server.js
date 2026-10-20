@@ -51,7 +51,7 @@ export function startServer({ port = 8787, username = null, log = console.log } 
   };
   wss.on('connection', (ws) => ws.send(JSON.stringify(lastStatus)));
 
-  if (username) connectTikTok(username, broadcast, status);
+  if (username) connectTikTok(username, broadcast, status, log);
 
   return new Promise((ok) => server.listen(port, () => {
     const actual = server.address().port;
@@ -74,7 +74,7 @@ function who(data) {
   return { user, name: u.nickname || user || 'seseorang', avatar: pickAvatar(u) };
 }
 
-async function connectTikTok(username, broadcast, status) {
+async function connectTikTok(username, broadcast, status, log) {
   const { TikTokLiveConnection, WebcastEvent, ControlEvent, UserOfflineError } = await import('tiktok-live-connector');
   // enableExtendedGiftInfo sengaja mati: daftar gift lengkap butuh paket berbayar Euler Stream,
   // dan nama, nilai koin, serta gambar gift sudah ada di setiap event gift.
@@ -84,7 +84,12 @@ async function connectTikTok(username, broadcast, status) {
   let retry = null;
   let delay = 15000;
 
-  conn.on(WebcastEvent.CHAT, (d) => broadcast({ type: 'comment', ...who(d), text: String(d.comment ?? '') }));
+  // Setiap komentar dan gift dicatat di terminal, supaya kelihatan apa yang benar-benar masuk.
+  conn.on(WebcastEvent.CHAT, (d) => {
+    const msg = { type: 'comment', ...who(d), text: String(d.comment ?? '') };
+    log(`[komentar] @${msg.user || '?'}: ${msg.text.slice(0, 80)}`);
+    broadcast(msg);
+  });
   conn.on(WebcastEvent.LIKE, (d) => broadcast({ type: 'like', ...who(d), count: Number(d.likeCount) || 1 }));
   conn.on(WebcastEvent.GIFT, (d) => {
     // Gift beruntun (giftType 1) baru dihitung saat beruntunnya selesai.
@@ -95,7 +100,9 @@ async function connectTikTok(username, broadcast, status) {
     const each = Number(d.giftDetails?.diamondCount) || 1;
     const img = [d.giftDetails?.giftImage, d.giftDetails?.icon].flatMap((i) => i?.url ?? i?.urlList ?? [])
       .find((x) => typeof x === 'string' && /^https?:\/\//.test(x)) ?? d.giftPictureUrl ?? null;
-    broadcast({ type: 'gift', ...who(d), gift, count, coins: each * count, giftImage: img });
+    const msg = { type: 'gift', ...who(d), gift, count, coins: each * count, giftImage: img };
+    log(`[gift] @${msg.user || '?'}: ${gift} x${count}`);
+    broadcast(msg);
   });
   conn.on(WebcastEvent.FOLLOW, (d) => broadcast({ type: 'follow', ...who(d) }));
   conn.on(WebcastEvent.SHARE, (d) => broadcast({ type: 'share', ...who(d) }));
