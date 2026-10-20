@@ -30,6 +30,16 @@ page.on('console', (m) => m.type() === 'error' && console.error('console:', m.te
 await page.goto(`http://localhost:${srv.port}/?sim=1&capture=1&seed=7&viewers=80&q=komodo`);
 await page.waitForFunction(() => document.title === 'ready', null, { timeout: 120000 });
 
+// Jalankan ffmpeg; kembalikan stderr kalau diminta (untuk hasil ukur loudnorm).
+function run(args, wantStderr = false) {
+  return new Promise((ok, fail) => {
+    const p = spawn('ffmpeg', args, { stdio: ['ignore', 'inherit', wantStderr ? 'pipe' : 'inherit'] });
+    let err = '';
+    p.stderr?.on('data', (d) => (err += d));
+    p.on('close', (c) => (c ? fail(new Error(`ffmpeg ${c}: ${err.slice(-500)}`)) : ok(err)));
+  });
+}
+
 const step = (ms, draw = true) => page.evaluate(([a, b]) => window.__step(a, b), [ms, draw]);
 const settle = () => page.evaluate(() => Promise.all([...document.images].map((i) => i.decode().catch(() => {}))));
 
@@ -108,21 +118,29 @@ if (mode === 'stills') {
   ff.stdin.end();
   await new Promise((r) => ff.on('close', r));
 
-  // Audio: musik latar sepanjang klip + SFX di waktunya, lalu normalisasi -14 LUFS / -1,5 dBTP.
+  // Audio: musik latar sepanjang klip + SFX di waktunya.
   const total = offset / 1000;
   const sfx = path.join(ROOT, 'public', 'sfx');
   const inputs = ['-stream_loop', '-1', '-i', path.join(sfx, 'bed.ogg')];
-  const parts = ['[1:a]volume=1.0,atrim=0:' + total.toFixed(3) + '[bed]'];
+  const parts = [`[0:a]atrim=0:${total.toFixed(3)}[bed]`];
   audio.forEach((e, i) => {
     inputs.push('-i', path.join(sfx, `${e.name}.ogg`));
-    parts.push(`[${i + 2}:a]volume=${e.gain},adelay=${Math.round(e.t)}|${Math.round(e.t)},aformat=channel_layouts=stereo[s${i}]`);
+    parts.push(`[${i + 1}:a]volume=${e.gain},adelay=${Math.round(e.t)}|${Math.round(e.t)},aformat=channel_layouts=stereo[s${i}]`);
   });
   const mixIn = ['[bed]', ...audio.map((_, i) => `[s${i}]`)].join('');
-  parts.push(`${mixIn}amix=inputs=${audio.length + 1}:normalize=0:duration=first,loudnorm=I=-14:TP=-1.5:LRA=11[a]`);
-  const args = ['-v', 'error', '-y', '-i', tmpVideo, ...inputs, '-filter_complex', parts.join(';'),
-    '-map', '0:v', '-map', '[a]', '-c:v', 'copy', '-c:a', 'aac', '-b:a', '192k', '-ar', '48000', '-shortest', out];
-  await new Promise((ok, fail) => spawn('ffmpeg', args, { stdio: 'inherit' }).on('close', (c) => (c ? fail(new Error(`ffmpeg ${c}`)) : ok())));
+  parts.push(`${mixIn}amix=inputs=${audio.length + 1}:normalize=0:duration=first[a]`);
+  const tmpAudio = `${out}.mix.wav`;
+  await run(['-v', 'error', '-y', ...inputs, '-filter_complex', parts.join(';'), '-map', '[a]', '-ar', '48000', tmpAudio]);
+  // Loudness: ukur, naikkan secara linear ke sekitar -14 LUFS, lalu limiter supaya puncak
+  // tetap di bawah -1 dBTP setelah encode AAC (0,6 dB menutup yang dipangkas limiter).
+  const measured = JSON.parse((await run(['-nostdin', '-hide_banner', '-i', tmpAudio, '-af',
+    'loudnorm=print_format=json', '-f', 'null', '-'], true)).match(/\{[\s\S]*\}/)[0]);
+  const gain = -14 - Number(measured.input_i) + 0.6;
+  await run(['-v', 'error', '-y', '-i', tmpVideo, '-i', tmpAudio,
+    '-af', `volume=${gain.toFixed(2)}dB,alimiter=limit=0.7:attack=1:release=60:level=false`, '-map', '0:v', '-map', '1:a',
+    '-c:v', 'copy', '-c:a', 'aac', '-b:a', '192k', '-ar', '48000', '-shortest', out]);
   fs.unlinkSync(tmpVideo);
+  fs.unlinkSync(tmpAudio);
   console.log(`preview ${out}: ${total.toFixed(1)} dtk, ${audio.length} bunyi`);
 }
 
