@@ -65,16 +65,19 @@ const inject = (tier, viewer) => page.evaluate(([g, i]) => {
   window.__quiz.engine.handle({ type: 'gift', user: v.user, name: v.name, avatar: v.avatar, ...g }, window.__quiz.now());
 }, [GIFT[tier], viewer]);
 
+// Ronde yang direkam: 1, atau CAPTURE_ROUND=2 untuk melihat tampilan ronde berikutnya.
+const ROUND = Number(process.env.CAPTURE_ROUND || 1);
+
 // q: nomor soal, 'negara'/'provinsi' (soal tebak lokasi), atau null.
-const matches = (s, phase, q) => s.phase === phase && s.round === 1
+const matches = (s, phase, q) => s.phase === phase && s.round === ROUND
   && (q === null || (typeof q === 'number' ? s.q === q : s.gen === q));
 
 // Lompat tanpa menggambar sampai satu frame sebelum titik `start` (ms) di fase dan soal
-// yang dicari, di ronde 1. gifts: [{ at, tier, viewer }] disuntik saat waktunya lewat.
+// yang dicari, di ronde ROUND. gifts: [{ at, tier, viewer }] disuntik saat waktunya lewat.
 async function moveTo(phase, q, start, gifts = []) {
   let s = await step(0, false);
   for (let i = 0; !(matches(s, phase, q) && s.elapsed <= start); i++) {
-    if (i > 20000 || s.round > 1) throw new Error(`fase ${phase} soal ${q} tidak ketemu`);
+    if (i > 20000 * ROUND || s.round > ROUND) throw new Error(`fase ${phase} soal ${q} tidak ketemu`);
     s = await step(100, false);
   }
   const pending = gifts.filter((g) => g.at < start).sort((a, b) => a.at - b.at);

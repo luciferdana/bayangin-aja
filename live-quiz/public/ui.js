@@ -700,45 +700,68 @@ function vote(v) {
 export const SCENES = { rules, intro, answer, reveal, winners, board, podium, standings, vote };
 
 // ---------------------------------------------------------------- zona bawah
-// Klasemen live mini di area bawah selama kuis berjalan, plus ucapan follow/share terbaru.
+// Klasemen live mini di area bawah selama kuis berjalan, klasemen ronde di bawahnya,
+// plus ucapan follow/share terbaru.
 const LOWER_PHASES = new Set(['intro', 'answer', 'reveal', 'winners']);
+
+// Satu baris 5 besar: nomor, foto, boost, nama, skor.
+function chipSection(cls, size) {
+  const sec = el('div', `lsec ${cls}`);
+  const headRow = el('div', 'lower-head mono');
+  const label = el('span');
+  const right = el('span', 'lower-toast');
+  headRow.append(label, right);
+  const chips = el('div', 'chips5');
+  sec.append(headRow, chips);
+  let key = '';
+  return {
+    sec, label, right,
+    set(entries) {
+      const k = entries.map((e) => `${e.user}:${e.score}:${e.boost}`).join('|');
+      if (k === key) return;
+      key = k;
+      chips.replaceChildren(...entries.map((e, i) => {
+        const c = el('div', 'chip5');
+        const top = el('div', 'c5top');
+        top.append(el('span', 'c5r', pad(i + 1)), avatar(e, size));
+        if (e.boost > 1) top.append(el('span', 'boost', `x${e.boost}`));
+        c.append(top, el('span', 'c5n user', e.name), el('span', 'c5s', e.score.toLocaleString('id-ID')));
+        return c;
+      }));
+    },
+  };
+}
 
 export function lowerZone(box) {
   const wrap = el('div', 'lower');
-  const headRow = el('div', 'lower-head mono');
-  const label = el('span');
-  const toast = el('span', 'lower-toast');
-  headRow.append(label, toast);
-  const chips = el('div', 'chips5');
-  wrap.append(headRow, chips);
+  const live = chipSection('live', 56);
+  const round = chipSection('round', 44);
+  wrap.append(live.sec, round.sec);
   box.append(wrap);
-  let key = '';
   let toastKey = '';
   return {
     update(v) {
       const show = LOWER_PHASES.has(v.phase) && !v.spotlight && v.standings.length > 0;
       wrap.style.opacity = show ? 1 : 0;
       if (!show) return;
-      label.replaceChildren(el('b', '', 'KLASEMEN LIVE'), ` · ${v.playerCount} PEMAIN`);
-      const k = v.standings.slice(0, 5).map((e) => `${e.user}:${e.score}:${e.boost}`).join('|');
-      if (k !== key) {
-        key = k;
-        chips.replaceChildren(...v.standings.slice(0, 5).map((e, i) => {
-          const c = el('div', 'chip5');
-          const top = el('div', 'c5top');
-          top.append(el('span', 'c5r', pad(i + 1)), avatar(e, 56));
-          if (e.boost > 1) top.append(el('span', 'boost', `x${e.boost}`));
-          c.append(top, el('span', 'c5n user', e.name), el('span', 'c5s', e.score.toLocaleString('id-ID')));
-          return c;
-        }));
-      }
+      live.label.replaceChildren(el('b', '', 'KLASEMEN LIVE'), ` · ${v.playerCount} PEMAIN`);
+      live.set(v.standings.slice(0, 5));
+
+      // Klasemen ronde: mulai ronde 2 (di ronde 1 isinya sama dengan klasemen live), begitu ada
+      // yang dapat poin di ronde ini.
+      const rb = v.round > 1 ? v.roundBoard.slice(0, 5) : [];
+      round.label.replaceChildren(el('b', '', `KLASEMEN RONDE ${pad(v.round)}`), ` · ${(v.theme?.label ?? '').toUpperCase()}`);
+      round.right.textContent = `SOAL ${pad(v.qNumber)}/${v.qTotal}`;
+      round.set(rb);
+      round.sec.style.display = rb.length ? '' : 'none';
+
       const tst = v.toasts.at(-1);
       const tk = tst ? `${tst.name}${tst.text}` : '';
       if (tk !== toastKey) {
         toastKey = tk;
-        toast.replaceChildren(...(tst ? [el('b', 'user', tst.name ? `${tst.name} ` : ''), tst.text.toUpperCase()] : []));
+        live.right.replaceChildren(...(tst ? [el('b', 'user', tst.name ? `${tst.name} ` : ''), tst.text.toUpperCase()] : []));
       }
-      toast.style.opacity = tst ? Math.min(1, tst.age / 300, (4500 - tst.age) / 400) : 0;
+      live.right.style.opacity = tst ? Math.min(1, tst.age / 300, (4500 - tst.age) / 400) : 0;
     },
   };
 }
