@@ -20,6 +20,8 @@ Lalu tambahkan halaman kuis sebagai sumber:
   (LIVE Studio menolak `localhost`; `localtest.me` tetap mengarah ke laptop sendiri).
   Nyalakan Custom resolution **1080 x 1920**, Turn on sound, dan Always keep active.
   Jangan pakai Window capture: hasilnya buram karena tinggi layar laptop di bawah 1920 piksel.
+- Pakai musik sendiri (misalnya Spotify)? Tambahkan `/?musik=0` di URL supaya musik latar kuis
+  mati dan tidak tabrakan; bunyi tick, jawaban, dan gift tetap ada.
 - **OBS**: Browser Source, URL `http://localhost:8787`, ukuran 1080 x 1920, 30 fps,
   centang "Control audio via OBS".
 

@@ -5,8 +5,10 @@ const NAMES = ['intro', 'tick', 'tickUrgent', 'timeUp', 'reveal', 'card', 'row',
 const GAIN = { tick: 0.5, tickUrgent: 0.7, row: 0.6, card: 0.8, gift: 0.6, follow: 0.6 };
 
 export class Sound {
-  constructor({ muted = false } = {}) {
+  // bed=false: tanpa musik latar (misalnya kalau musik diputar dari aplikasi lain), SFX tetap.
+  constructor({ muted = false, bed = true } = {}) {
     this.muted = muted;
+    this.bed = bed;
     this.log = [];
     this.buffers = {};
     this.ctx = null;
@@ -27,7 +29,7 @@ export class Sound {
         // file hilang: bunyi itu dilewati
       }
     };
-    await Promise.all([...NAMES, 'bed'].map(load));
+    await Promise.all([...NAMES, ...(this.bed ? ['bed'] : [])].map(load));
     // Browser biasa butuh interaksi dulu; di OBS audio langsung jalan.
     const resume = () => this.ctx.state === 'suspended' && this.ctx.resume();
     window.addEventListener('pointerdown', resume);

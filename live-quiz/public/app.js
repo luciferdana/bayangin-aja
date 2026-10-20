@@ -7,6 +7,7 @@
 //   &q=komodo       mulai dari soal tertentu         &like=100 target like bantuan
 //   &tema=negara    tema ronde pertama (campuran, sains, sejarah, olahraga, umum, negara, provinsi)
 //   &mute=1         tanpa suara                       &debug=1  tampilkan status koneksi
+//   &musik=0        tanpa musik latar (SFX tetap), misalnya saat musik dari Spotify
 //   &bumi=nyata     cahaya Bumi: nyata (sesuai jam), siang, senja
 //   &jam=2026-10-20T05:00:00Z   waktu awal untuk mode nyata (default: sekarang)
 //   &capture=1      waktu dikendalikan skrip render (window.__step)
@@ -44,7 +45,7 @@ let manualNow = 0;
 const t0 = performance.now();
 const clock = () => (capture ? manualNow : (performance.now() - t0) * speed);
 
-const sound = new Sound({ muted: params.has('mute') || capture });
+const sound = new Sound({ muted: params.has('mute') || capture, bed: params.get('musik') !== '0' });
 const startDate = params.has('jam') ? new Date(params.get('jam')) : new Date();
 const globe = new Globe(document.getElementById('globe'), {
   mode: params.get('bumi') || 'nyata',
