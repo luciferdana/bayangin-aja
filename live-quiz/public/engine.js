@@ -17,6 +17,7 @@ export const DEFAULTS = {
   roundSize: 10,
   boardEvery: 5,
   hintLikes: 100,
+  maxTries: 3,
   mix: { mudah: 4, sedang: 4, sulit: 2 },
   // Skor: poin dasar per tingkat, bonus cepat sampai speedBonus x dasar,
   // bonus beruntun mulai jawaban benar ke-streakFrom berturut-turut.
@@ -29,17 +30,83 @@ export const DEFAULTS = {
   wallSize: 40,
 };
 
-export const LETTERS = ['A', 'B', 'C', 'D'];
+// ---- Pencocokan jawaban ketik ----
+// Penonton mengetik teks opsi di komentar. Huruf besar-kecil, tanda baca, spasi,
+// dan typo kecil dimaafkan; angka harus persis.
 
-// "a", "B!", "jawab c", "C c c" -> indeks; selain itu null.
-export function parseAnswer(text, optionCount) {
-  if (typeof text !== 'string') return null;
-  const words = text.trim().toUpperCase().replace(/[^A-Z0-9\s]/g, ' ').split(/\s+/).filter(Boolean);
-  if (words.length === 0 || words.length > 3) return null;
-  const pick = words[0] === 'JAWAB' || words[0] === 'JAWABAN' ? words[1] : words[0];
-  if (!pick || pick.length !== 1) return null;
-  const i = LETTERS.indexOf(pick);
-  return i >= 0 && i < optionCount ? i : null;
+const FILLER = new Set(['jawab', 'jawaban', 'jawabannya', 'jawabanya', 'jawabnya', 'jwb', 'kak', 'min',
+  'bang', 'dong', 'deh', 'ya', 'yg', 'yang', 'adalah', 'itu', 'dah', 'kan']);
+const NUM_WORDS = ['nol', 'satu', 'dua', 'tiga', 'empat', 'lima', 'enam', 'tujuh', 'delapan', 'sembilan', 'sepuluh'];
+
+export function normalize(text) {
+  return String(text)
+    .toLowerCase()
+    .normalize('NFD').replace(/[\u0300-\u036f]/g, '')
+    .replace(/(\d)[.,](?=\d)/g, '$1') // 1.143 dan 42,195 jadi angka utuh
+    .replace(/[-_'’]/g, '')
+    .replace(/[^a-z0-9]+/g, ' ')
+    .trim();
+}
+
+const squash = (s) => normalize(s).replace(/ /g, '');
+
+// Jarak edit dengan pertukaran dua huruf bersebelahan dihitung 1 ("bioal" -> "biola").
+export function editDistance(a, b, max = Infinity) {
+  if (Math.abs(a.length - b.length) > max) return max + 1;
+  let prev2 = null;
+  let prev = Array.from({ length: b.length + 1 }, (_, j) => j);
+  for (let i = 1; i <= a.length; i++) {
+    const cur = [i];
+    let best = i;
+    for (let j = 1; j <= b.length; j++) {
+      let d = Math.min(prev[j] + 1, cur[j - 1] + 1, prev[j - 1] + (a[i - 1] === b[j - 1] ? 0 : 1));
+      if (prev2 && i > 1 && j > 1 && a[i - 1] === b[j - 2] && a[i - 2] === b[j - 1]) d = Math.min(d, prev2[j - 2] + 1);
+      cur[j] = d;
+      best = Math.min(best, d);
+    }
+    if (best > max) return max + 1;
+    prev2 = prev;
+    prev = cur;
+  }
+  return prev[b.length];
+}
+
+export function tolerance(key) {
+  if (/\d/.test(key)) return 0;
+  return key.length <= 4 ? 0 : key.length <= 8 ? 1 : 2;
+}
+
+// Daftar kunci per opsi: teks opsi, alias, dan kata bilangan untuk angka 0-10.
+export function buildMatcher(q) {
+  const entries = [];
+  q.options.forEach((opt, index) => {
+    const keys = new Set([squash(opt), ...(q.alias?.[opt] || []).map(squash)]);
+    const n = Number(squash(opt));
+    if (Number.isInteger(n) && n >= 0 && n < NUM_WORDS.length && /^\d+$/.test(squash(opt))) keys.add(NUM_WORDS[n]);
+    for (const key of keys) if (key) entries.push({ index, key, words: normalize(opt).split(' ').length });
+  });
+  return entries;
+}
+
+// Komentar -> indeks opsi, atau null kalau bukan tebakan / ambigu.
+// Komentar boleh berisi kata pengisi ("jawabannya biola kak"), tapi kalimat panjang
+// yang kebetulan memuat nama opsi tidak dihitung.
+export function matchAnswer(text, matcher) {
+  if (typeof text !== 'string' || text.length > 80) return null;
+  const words = normalize(text).split(' ').filter((w) => w && !FILLER.has(w));
+  if (!words.length || words.length > 5) return null;
+  const hits = new Set();
+  for (let len = 1; len <= Math.min(3, words.length); len++) {
+    if (words.length > len + 1) continue;
+    for (let i = 0; i + len <= words.length; i++) {
+      const cand = words.slice(i, i + len).join('');
+      for (const e of matcher) {
+        const tol = tolerance(e.key);
+        if (editDistance(cand, e.key, tol) <= tol) hits.add(e.index);
+      }
+    }
+  }
+  return hits.size === 1 ? [...hits][0] : null;
 }
 
 export function mulberry32(seed) {
@@ -165,7 +232,8 @@ export class QuizEngine {
     const q = this.present(this.questions[this.qIndex]);
     this.current = {
       q,
-      answers: new Map(), // uniqueId -> { choice, at }
+      answers: new Map(), // uniqueId -> { choice, at, tries, done }
+      matcher: buildMatcher(q),
       counts: new Array(q.options.length).fill(0),
       recent: [], // penjawab terakhir, untuk tumpukan avatar
       likes: 0,
@@ -181,6 +249,7 @@ export class QuizEngine {
     const idx = shuffle(q.options.map((_, i) => i), this.rng);
     return { ...q, options: idx.map((i) => q.options[i]), answer: idx.indexOf(q.answer) };
   }
+
 
   setPhase(phase, now, duration) {
     this.phase = phase;
@@ -308,14 +377,20 @@ export class QuizEngine {
     }
   }
 
+  // Maksimal cfg.maxTries tebakan; berhenti begitu benar. Mengulang tebakan yang sama
+  // atau menebak opsi yang sudah dihapus 50:50 tidak memakan jatah.
   answer(user, name, avatar, text, now) {
     if (this.phase !== 'answer') return;
     const c = this.current;
-    if (c.answers.has(user)) return; // jawaban pertama yang dihitung
-    const choice = parseAnswer(text, c.q.options.length);
-    if (choice === null || c.removed.has(choice)) return;
-    c.answers.set(user, { choice, at: now });
+    const prev = c.answers.get(user);
+    if (prev?.done) return;
+    const choice = matchAnswer(text, c.matcher);
+    if (choice === null || c.removed.has(choice) || prev?.choice === choice) return;
+    const tries = (prev?.tries ?? 0) + 1;
+    const done = choice === c.q.answer || tries >= this.cfg.maxTries;
+    if (prev) c.counts[prev.choice] -= 1;
     c.counts[choice] += 1;
+    c.answers.set(user, { choice, at: now, tries, done });
     const p = this.players.get(user);
     if (p) {
       p.name = name;
@@ -378,6 +453,7 @@ export class QuizEngine {
         streakBonus: cfg.streakBonus,
         answerSec: Math.round(cfg.answerMs / 1000),
         hintLikes: cfg.hintLikes,
+        maxTries: cfg.maxTries,
       },
       toasts: this.toasts.map((t) => ({ kind: t.kind, name: t.name, text: t.text, age: now - t.at })),
     };

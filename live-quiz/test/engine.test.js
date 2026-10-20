@@ -1,9 +1,9 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { QuizEngine, parseAnswer, mulberry32, DEFAULTS } from '../public/engine.js';
+import { QuizEngine, mulberry32, DEFAULTS, buildMatcher, matchAnswer, normalize, editDistance } from '../public/engine.js';
 import { QUESTIONS } from '../public/questions.js';
 
-const make = (opts = {}) => new QuizEngine(QUESTIONS, { rng: mulberry32(1), ...opts });
+const make = (opts = {}) => (engineRef.e = new QuizEngine(QUESTIONS, { rng: mulberry32(1), ...opts }));
 
 // Maju sampai fase tertentu, kembalikan waktu sekarang.
 function advanceTo(e, phase, t = 0) {
@@ -15,18 +15,44 @@ function advanceTo(e, phase, t = 0) {
   return t;
 }
 
-const letter = (i) => 'ABCD'[i];
+// Teks jawaban untuk opsi ke-i pada soal yang sedang tampil.
+const letter = (i, e = engineRef.e) => e.current.q.options[i];
+const engineRef = { e: null };
 
-test('parseAnswer', () => {
-  assert.equal(parseAnswer('a', 4), 0);
-  assert.equal(parseAnswer(' B! ', 4), 1);
-  assert.equal(parseAnswer('jawab c', 4), 2);
-  assert.equal(parseAnswer('d d d', 4), 3);
-  assert.equal(parseAnswer('C', 2), null);
-  assert.equal(parseAnswer('aku pilih a dong ya', 4), null);
-  assert.equal(parseAnswer('apa', 4), null);
-  assert.equal(parseAnswer('', 4), null);
-  assert.equal(parseAnswer(null, 4), null);
+const Q = (id) => QUESTIONS.find((q) => q.id === id);
+
+test('normalize', () => {
+  assert.equal(normalize('  Paru-Paru! '), 'paruparu');
+  assert.equal(normalize('42,195'), '42195');
+  assert.equal(normalize('3.430'), '3430');
+  assert.equal(normalize('Leonardo da Vinci'), 'leonardo da vinci');
+});
+
+test('matchAnswer: ejaan, typo, alias, kata pengisi', () => {
+  const m = (id, t) => matchAnswer(t, buildMatcher(Q(id)));
+  assert.equal(m('biola-1928', 'Biola'), 2);
+  assert.equal(m('biola-1928', 'jawabannya biola kak'), 2);
+  assert.equal(m('biola-1928', 'bioal'), 2); // typo 1 huruf
+  assert.equal(m('biola-1928', 'gitar'), 1);
+  assert.equal(m('biola-1928', 'a'), null); // huruf saja tidak dihitung
+  assert.equal(m('biola-1928', 'kayaknya sih biola deh soalnya'), null); // kalimat panjang
+  assert.equal(m('biola-1928', 'biola atau gitar'), null); // ambigu
+  assert.equal(m('komodo', 'NTT'), 1);
+  assert.equal(m('komodo', 'nusa tenggara timur'), 1);
+  assert.equal(m('komodo', 'Nusa Tenggara Timr'), 1);
+  assert.equal(m('komodo', 'nusa tenggara'), null);
+  assert.equal(m('logam-cair', 'merkuri'), 2);
+  assert.equal(m('kulit', 'paru paru'), 1);
+  assert.equal(m('gurita', 'tiga'), 2);
+  assert.equal(m('gurita', '3'), 2);
+  assert.equal(m('maraton', '42.195'), 2);
+  assert.equal(m('maraton', '42'), null);
+  assert.equal(m('tulang', '207'), null); // angka harus persis
+  assert.equal(m('rendang', 'sumbar'), 1);
+  assert.equal(m('petir', 'mitos'), 1);
+  assert.equal(m('petir', 'MITOS!!'), 1);
+  assert.equal(m('petir', ''), null);
+  assert.equal(m('petir', null), null);
 });
 
 test('ronde dibuka dengan cara main, lalu soal pertama', () => {
@@ -81,11 +107,12 @@ test('alur jawaban, penilaian, dan pemenang tercepat', () => {
   e.handle({ type: 'comment', user: 'u1', name: 'Satu', avatar: 'https://x.test/1.jpg', text: right }, t + 1000);
   e.handle({ type: 'comment', user: 'u2', name: 'Dua', text: right }, t + 5000);
   e.handle({ type: 'comment', user: 'u3', name: 'Tiga', text: wrong }, t + 500);
-  e.handle({ type: 'comment', user: 'u1', name: 'Satu', text: wrong }, t + 6000); // ganti jawaban: diabaikan
+  e.handle({ type: 'comment', user: 'u1', name: 'Satu', text: wrong }, t + 6000); // sudah benar: terkunci
   e.handle({ type: 'comment', user: 'u4', name: 'Empat', avatar: 'javascript:alert(1)', text: right }, t + 7000);
   const v = e.view(t + 7000);
   assert.equal(v.totalAnswers, 4);
   assert.equal(v.counts[q.answer], 3);
+  assert.equal(v.counts.reduce((a, b) => a + b), 4);
   assert.equal(v.recent.at(-1).name, 'Empat');
   assert.equal(v.recent.at(-1).avatar, null); // URL non-http ditolak
   const t2 = advanceTo(e, 'reveal', t);
@@ -140,6 +167,32 @@ test('like mencapai target menghapus dua jawaban salah', () => {
   // Jawaban ke opsi yang sudah dihapus tidak dihitung.
   e.handle({ type: 'comment', user: 'y', text: letter(v.removed[0]) }, t + 30);
   assert.equal(e.view(t + 30).totalAnswers, 0);
+});
+
+test('maksimal 3 tebakan, tebakan kedua yang benar tetap dapat poin', () => {
+  const e = make({ startWith: 'jupiter' });
+  e.start(0);
+  const t = advanceTo(e, 'answer');
+  const q = e.current.q;
+  const wrongs = q.options.map((_, i) => i).filter((i) => i !== q.answer);
+  // u1: salah lalu benar
+  e.handle({ type: 'comment', user: 'u1', text: letter(wrongs[0]) }, t + 100);
+  e.handle({ type: 'comment', user: 'u1', text: letter(wrongs[0]) }, t + 150); // ulang sama: tidak memakan jatah
+  e.handle({ type: 'comment', user: 'u1', text: letter(q.answer) }, t + 4000);
+  // u2: tiga kali salah, lalu benar (terlambat, sudah habis jatah)
+  for (const [k, w] of [wrongs[0], wrongs[1], wrongs[2], wrongs[0]].entries()) {
+    e.handle({ type: 'comment', user: 'u2', text: letter(w) }, t + 200 + k);
+  }
+  e.handle({ type: 'comment', user: 'u2', text: letter(q.answer) }, t + 300);
+  const v = e.view(t + 300);
+  assert.equal(v.totalAnswers, 2);
+  assert.equal(v.counts[q.answer], 1);
+  assert.equal(e.current.answers.get('u1').tries, 2);
+  assert.equal(e.current.answers.get('u2').tries, 3);
+  const t2 = advanceTo(e, 'reveal', t);
+  const r = e.view(t2);
+  assert.deepEqual(r.winners.map((w) => w.user), ['u1']);
+  assert.equal(r.winners[0].ms, 4000); // waktu tebakan yang benar
 });
 
 test('soal dua pilihan tidak memakai bantuan 50:50', () => {
@@ -203,7 +256,8 @@ test('tahan live 6 jam dengan banyak penonton', () => {
   const end = 6 * 3600 * 1000;
   for (let t = 0; t < end; t += 250) {
     e.tick(t);
-    if (rng() < 0.5) e.handle({ type: 'comment', user: `u${Math.floor(rng() * 3000)}`, text: letter(Math.floor(rng() * 4)) }, t);
+    const opts = e.current?.q.options ?? ['halo'];
+    if (rng() < 0.5) e.handle({ type: 'comment', user: `u${Math.floor(rng() * 3000)}`, text: opts[Math.floor(rng() * opts.length)] }, t);
     if (rng() < 0.1) e.handle({ type: 'like', count: 15 }, t);
     if (rng() < 0.002) e.handle({ type: 'gift', name: 'g', gift: 'Mawar' }, t);
   }
@@ -211,4 +265,12 @@ test('tahan live 6 jam dengan banyak penonton', () => {
   assert.ok(e.round > 20, `ronde ${e.round}`);
   assert.ok(e.players.size <= 3000);
   assert.ok(v.toasts.length <= 3 && v.standings.length <= 10 && v.wall.length <= DEFAULTS.wallSize);
+});
+
+test('editDistance', () => {
+  assert.equal(editDistance('biola', 'biola'), 0);
+  assert.equal(editDistance('bioal', 'biola'), 1);
+  assert.equal(editDistance('gitar', 'gitarr'), 1);
+  assert.equal(editDistance('abc', 'xyz'), 3);
+  assert.ok(editDistance('jupiter', 'saturnus', 2) > 2);
 });
