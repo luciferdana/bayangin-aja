@@ -14,10 +14,14 @@ npm install
 npm start -- bayangin.3d      # server + baca komentar TikTok LIVE akun ini
 ```
 
-Lalu di OBS atau TikTok LIVE Studio tambahkan **Browser Source**:
+Lalu tambahkan halaman kuis sebagai sumber:
 
-- URL `http://localhost:8787`, ukuran **1080 x 1920**, 30 fps
-- centang "Control audio via OBS" supaya musik dan SFX ikut tersiar
+- **TikTok LIVE Studio**: Add source → **Link**, URL **`http://localtest.me:8787`**
+  (LIVE Studio menolak `localhost`; `localtest.me` tetap mengarah ke laptop sendiri).
+  Nyalakan Custom resolution **1080 x 1920**, Turn on sound, dan Always keep active.
+  Jangan pakai Window capture: hasilnya buram karena tinggi layar laptop di bawah 1920 piksel.
+- **OBS**: Browser Source, URL `http://localhost:8787`, ukuran 1080 x 1920, 30 fps,
+  centang "Control audio via OBS".
 
 Server bisa dinyalakan sebelum live dimulai. Kalau akun belum live, server menunggu dan
 mencoba lagi sendiri. Kalau koneksi terputus, server juga menyambung ulang sendiri.
