@@ -79,6 +79,16 @@ body { color: var(--paper); font-family: var(--cond); }
 .opt .bar { position: absolute; left: 0; bottom: -1px; height: 5px; width: 100%; background: var(--hair-strong); transform-origin: 0 50%; }
 .opt.removed .t { text-decoration: line-through; text-decoration-thickness: 3px; }
 .opt.removed > * { opacity: 0.25; }
+.opt .ph { display: none; }
+.opt.locked .t { visibility: hidden; }
+.options .opt.locked .ph { display: block; position: absolute; left: 46px; top: 50%; width: 46%; height: 26px; margin-top: -13px;
+  background: repeating-linear-gradient(-45deg, var(--hair-strong) 0 6px, transparent 6px 14px); }
+.opt.locked .mk { border-color: var(--muted); }
+.opt.opened .t { color: var(--signal); }
+.optlock { position: absolute; right: 0; top: 50%; transform-origin: 100% 50%; margin-top: -58px; display: flex; flex-direction: column; align-items: flex-end; gap: 8px;
+  padding: 18px 24px; background: var(--ink); border: 1px solid var(--signal); font-size: 20px; color: var(--muted); pointer-events: none; }
+.optlock b { font-size: 34px; color: var(--signal); }
+.options.compact .optlock { margin-top: -50px; padding: 12px 18px; }
 
 /* Kaki */
 .foot { top: 1068px; display: flex; justify-content: space-between; align-items: center; font-size: 19px; color: var(--muted); }

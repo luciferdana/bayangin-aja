@@ -10,6 +10,8 @@ export const TOPIC_STYLE = {
   bola: { color: '#8bd450', icon: I('<circle cx="32" cy="32" r="25"/><path d="m32 22 9 7-3.5 11h-11L23 29Z"/><path d="M32 22V8M41 29l13-5M37.5 40l8 12M26.5 40l-8 12M23 29l-13-5"/>') },
   anime: { color: '#ff5fa2', icon: I('<path d="M32 4 38 26 60 32 38 38 32 60 26 38 4 32 26 26Z"/><circle cx="32" cy="32" r="5"/>') },
   musik: { color: '#a77bff', icon: I('<path d="M24 46V12l26-6v34"/><circle cx="17" cy="46" r="7"/><circle cx="43" cy="40" r="7"/>') },
+  inggris: { color: '#e07a5f', icon: I('<path d="M8 10h48v32H30l-12 11V42H8Z"/><path d="m21 35 8-18 8 18M24 29h10"/><path d="M43 22v13M43 27a5 5 0 1 1 0 6"/>') },
+  kampus: { color: '#b08968', icon: I('<path d="M4 24 32 12l28 12-28 12Z"/><path d="M16 30v13c0 4 8 8 16 8s16-4 16-8V30"/><path d="M56 26v15"/><circle cx="56" cy="45" r="2.5" fill="currentColor"/>') },
   umum: { color: '#f2d649', icon: I('<path d="M22 40a16 16 0 1 1 20 0v6H22Z"/><path d="M24 52h16M27 58h10"/>') },
   negara: { color: '#ff8a3d', icon: I('<circle cx="32" cy="32" r="25"/><ellipse cx="32" cy="32" rx="11" ry="25"/><path d="M8 24h48M8 40h48"/>') },
   provinsi: { color: '#2fbf71', icon: I('<path d="M32 58s18-18 18-32a18 18 0 0 0-36 0c0 14 18 32 18 32Z"/><circle cx="32" cy="26" r="6"/>') },

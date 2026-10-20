@@ -69,3 +69,34 @@ test('setiap soal tebak bendera punya gambar dan bisa diketik', () => {
   const q = gens.bendera('sulit', mulberry32(2));
   assert.ok(q.flag && q.gen === 'bendera');
 });
+
+// Rotasi soal peta: dalam satu tingkat, wilayah baru boleh terulang setelah semua wilayah
+// tingkat itu sudah keluar.
+for (const [kind, from, needs] of [['negara', 'countries'], ['provinsi', 'provinces'], ['bendera', 'countries', 'flag']]) {
+  test(`soal tebak ${kind} dirotasi: semua wilayah keluar dulu sebelum ada yang terulang`, () => {
+    const list = Object.values(geo[from]).filter((x) => !needs || x[needs]);
+    const total = {};
+    for (const x of list) total[x.diff] = (total[x.diff] ?? 0) + 1;
+    const e = new QuizEngine(QUESTIONS, { rng: mulberry32(3), theme: kind, generators: makeGenerators(geo) });
+    e.start(0);
+    const seen = {};
+    for (let r = 0; r < 12; r++) {
+      if (r > 0) {
+        e.nextTheme = e.theme;
+        e.newRound(0);
+      }
+      const ids = e.questions.map((q) => q.id);
+      assert.equal(new Set(ids).size, ids.length, `${kind} ronde ${r + 1}: soal ganda`);
+      const order = [...e.questions].sort((x, y) => (seen[x.diff]?.has(x.id) ?? false) - (seen[y.diff]?.has(y.id) ?? false));
+      for (const q of order) {
+        const s = (seen[q.diff] ??= new Set());
+        if (s.has(q.id)) {
+          assert.equal(s.size, total[q.diff], `${kind}: ${q.id} terulang sebelum semua wilayah ${q.diff} keluar`);
+          s.clear();
+        }
+        s.add(q.id);
+        if (s.size === total[q.diff]) s.clear();
+      }
+    }
+  });
+}

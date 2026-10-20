@@ -48,7 +48,9 @@ export function makeGenerators(geo) {
   const gens = {};
   for (const kind of Object.keys(KIND)) {
     const list = Object.values(geo[KIND[kind].from]).filter((x) => !KIND[kind].needs || x[KIND[kind].needs]);
-    gens[kind] = (diff, rng, avoid = new Set()) => {
+    // avoid: id yang tidak boleh dipakai (sudah ada di ronde ini). rank(id): kapan terakhir tampil
+    // (-1 = belum pernah); yang paling lama tidak tampil didahulukan, jadi semua wilayah bergiliran.
+    gens[kind] = (diff, rng, avoid = new Set(), rank = () => -1) => {
       const tiers = [
         (x) => x.diff === diff && !avoid.has(idOf(kind, x.name)),
         (x) => !avoid.has(idOf(kind, x.name)),
@@ -56,7 +58,10 @@ export function makeGenerators(geo) {
       ];
       for (const ok of tiers) {
         const c = list.filter(ok);
-        if (c.length) return geoQuestion(geo, kind, c[Math.floor(rng() * c.length)]);
+        if (!c.length) continue;
+        const oldest = Math.min(...c.map((x) => rank(idOf(kind, x.name))));
+        const pool = c.filter((x) => rank(idOf(kind, x.name)) === oldest);
+        return geoQuestion(geo, kind, pool[Math.floor(rng() * pool.length)]);
       }
       return null;
     };

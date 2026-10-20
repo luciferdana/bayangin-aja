@@ -1,6 +1,6 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { QuizEngine, mulberry32, DEFAULTS, buildMatcher, matchAnswer, normalize, editDistance } from '../public/engine.js';
+import { QuizEngine, mulberry32, DEFAULTS, THEMES, buildMatcher, matchAnswer, normalize, editDistance } from '../public/engine.js';
 import { QUESTIONS } from '../public/questions.js';
 
 const make = (opts = {}) => (engineRef.e = new QuizEngine(QUESTIONS, { rng: mulberry32(1), ...opts }));
@@ -87,6 +87,37 @@ test('soal tidak berulang sampai bank habis', () => {
   }
 });
 
+// Rotasi per topik: dalam satu tingkat, soal baru boleh terulang setelah semua soal tingkat itu
+// di topik tersebut sudah tampil. Diuji untuk tiap topik bank soal, 8 ronde berturut-turut.
+test('soal tiap topik dirotasi: semua keluar dulu sebelum ada yang terulang', () => {
+  for (const theme of THEMES.filter((t) => t.cats)) {
+    const e = make({ theme: theme.id });
+    e.start(0);
+    const total = {};
+    for (const q of QUESTIONS) if (theme.cats.includes(q.cat)) total[q.diff] = (total[q.diff] ?? 0) + 1;
+    const seen = { mudah: new Set(), sedang: new Set(), sulit: new Set() };
+    for (let r = 0; r < 8; r++) {
+      if (r > 0) {
+        e.nextTheme = theme;
+        e.newRound(0);
+      }
+      const ids = e.questions.map((q) => q.id);
+      assert.equal(new Set(ids).size, ids.length, `${theme.id} ronde ${r + 1}: soal ganda dalam satu ronde`);
+      // Urutan tampil dalam ronde diacak, jadi soal yang belum pernah keluar dihitung lebih dulu.
+      const order = [...e.questions].sort((x, y) => seen[x.diff].has(x.id) - seen[y.diff].has(y.id));
+      for (const q of order) {
+        const s = seen[q.diff];
+        if (s.has(q.id)) {
+          assert.equal(s.size, total[q.diff], `${theme.id}: ${q.id} terulang padahal soal ${q.diff} lain belum keluar`);
+          s.clear();
+        }
+        s.add(q.id);
+        if (s.size === total[q.diff]) s.clear();
+      }
+    }
+  }
+});
+
 test('rumus skor: dasar per tingkat, bonus cepat, beruntun', () => {
   const e = make();
   const A = DEFAULTS.answerMs;
@@ -154,20 +185,29 @@ test('beruntun putus kalau tidak menjawab', () => {
   assert.equal(e.players.get('u1').streak, 0);
 });
 
-test('like mencapai target menghapus dua jawaban salah', () => {
+test('pilihan terkunci sampai like mencapai target', () => {
   const e = make({ startWith: 'jupiter' });
   e.start(0);
   const t = advanceTo(e, 'answer');
-  e.handle({ type: 'like', user: 'x', count: 60 }, t + 10);
-  assert.equal(e.view(t + 10).removed.length, 0);
-  e.handle({ type: 'like', user: 'x', count: 60 }, t + 20);
+  assert.equal(e.view(t).optionsShown, false);
+  // Menebak tetap bisa saat pilihan masih terkunci.
+  e.handle({ type: 'comment', user: 'y', text: 'jupiter' }, t + 5);
+  assert.equal(e.view(t + 5).totalAnswers, 1);
+  e.handle({ type: 'like', user: 'x', count: DEFAULTS.hintLikes - 1 }, t + 10);
+  assert.equal(e.view(t + 10).optionsShown, false);
+  e.handle({ type: 'like', user: 'x', count: 5 }, t + 20);
   const v = e.view(t + 20);
-  assert.equal(v.removed.length, 2);
-  assert.ok(!v.removed.includes(v.question.answer));
+  assert.equal(v.optionsShown, true);
+  assert.equal(v.removed.length, 0);
   assert.equal(v.toasts.at(-1).kind, 'hint');
-  // Jawaban ke opsi yang sudah dihapus tidak dihitung.
-  e.handle({ type: 'comment', user: 'y', text: letter(v.removed[0]) }, t + 30);
-  assert.equal(e.view(t + 30).totalAnswers, 0);
+});
+
+test('soal dua pilihan tidak pernah terkunci', () => {
+  const q2 = QUESTIONS.find((q) => q.options.length === 2);
+  const e = make({ startWith: q2.id });
+  e.start(0);
+  const t = advanceTo(e, 'answer');
+  assert.equal(e.view(t).optionsShown, true);
 });
 
 test('maksimal 3 tebakan, tebakan kedua yang benar tetap dapat poin', () => {
@@ -294,15 +334,25 @@ test('gift besar menghentikan timer, jawaban saat berhenti tidak kehilangan bonu
   assert.equal(e.phaseEnd, t + DEFAULTS.answerMs + big);
 });
 
-test('gift sedang saat menjawab membuka 50:50 atas nama pemberi', () => {
+test('gift sedang membuka pilihan, gift sedang berikutnya mencoret dua yang salah', () => {
   const e = make({ startWith: 'jupiter' });
   e.start(0);
   const t = advanceTo(e, 'answer');
   e.handle({ type: 'gift', user: 'b', name: 'Bima', gift: 'Topi', coins: 30 }, t + 100);
   e.tick(t + 100);
-  const v = e.view(t + 100);
+  let v = e.view(t + 100);
+  assert.equal(v.optionsShown, true);
+  assert.equal(v.openedBy, 'Bima');
+  assert.equal(v.removed.length, 0);
+  e.handle({ type: 'gift', user: 'c', name: 'Citra', gift: 'Topi', coins: 30 }, t + 200);
+  e.tick(t + 100 + DEFAULTS.giftTiers[1].ms + 10);
+  v = e.view(t + 100 + DEFAULTS.giftTiers[1].ms + 10);
   assert.equal(v.removed.length, 2);
-  assert.equal(v.hintBy, 'Bima');
+  assert.ok(!v.removed.includes(v.question.answer));
+  assert.equal(v.hintBy, 'Citra');
+  // Jawaban ke opsi yang sudah dicoret tidak dihitung.
+  e.handle({ type: 'comment', user: 'y', text: letter(v.removed[0]) }, t + 6000);
+  assert.equal(e.view(t + 6000).totalAnswers, 0);
 });
 
 test('voting tema: suara terbanyak menang, gift menambah bobot', () => {

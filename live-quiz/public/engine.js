@@ -18,7 +18,8 @@ export const DEFAULTS = {
   voteCooldown: 2, // topik dari sekian ronde terakhir tidak ditawarkan lagi saat vote
   roundSize: 10,
   boardEvery: 5,
-  hintLikes: 100,
+  // Pilihan jawaban terkunci di awal soal; terbuka setelah sekian like (atau gift sedang).
+  hintLikes: 200,
   maxTries: 3,
   mix: { mudah: 4, sedang: 4, sulit: 2 },
   // Skor: poin dasar per tingkat, bonus cepat sampai speedBonus x dasar,
@@ -53,6 +54,8 @@ export const THEMES = [
   { id: 'bola', label: 'Sepak Bola', keyword: 'bola', cats: ['Sepak Bola'], alias: ['sepak bola', 'sepakbola', 'football'] },
   { id: 'anime', label: 'Anime & Manga', keyword: 'anime', cats: ['Anime dan Manga'], alias: ['manga', 'wibu'] },
   { id: 'musik', label: 'Musik Indonesia', keyword: 'musik', cats: ['Musik Indonesia'], alias: ['lagu', 'music'] },
+  { id: 'inggris', label: 'Bahasa Inggris', keyword: 'inggris', cats: ['Bahasa Inggris'], alias: ['english', 'b inggris'] },
+  { id: 'kampus', label: 'Kampus', keyword: 'kampus', cats: ['Kampus'], alias: ['kuliah', 'universitas'] },
   { id: 'umum', label: 'Pengetahuan Umum', keyword: 'umum', cats: ['Geografi', 'Bahasa dan Budaya', 'Teknologi', 'Makanan', 'Seni dan Musik', 'Angka dan Skala', 'Benar atau Mitos'], alias: ['budaya'] },
   { id: 'negara', label: 'Tebak Negara', keyword: 'negara', gen: 'negara' },
   { id: 'provinsi', label: 'Tebak Provinsi', keyword: 'provinsi', gen: 'provinsi' },
@@ -186,7 +189,8 @@ export class QuizEngine {
     this.nextTheme = this.themes.find((t) => t.id === theme) ?? topics[Math.floor(rng() * topics.length)];
     this.theme = null;
     this.themeHistory = []; // id topik tiap ronde, terbaru di akhir
-    this.recent = []; // id soal yang baru tampil, supaya tidak cepat berulang
+    this.used = new Map(); // id soal -> nomor urut terakhir tampil, untuk rotasi bank soal
+    this.useSeq = 0;
     this.startWith = startWith;
     this.round = 0;
     this.players = new Map(); // uniqueId -> { name, avatar, score, correct, streak, boost }
@@ -224,7 +228,7 @@ export class QuizEngine {
       for (const [gen, diff] of [['negara', 'mudah'], ['provinsi', 'sedang']]) {
         const g = this.generators[gen];
         const i = picks.findIndex((q) => q.diff === diff && !q.gen);
-        const q = g && i >= 0 ? g(diff, this.rng, new Set(this.recent)) : null;
+        const q = g && i >= 0 ? g(diff, this.rng, new Set(picks.map((x) => x.id)), (id) => this.used.get(id) ?? -1) : null;
         if (q) picks[i] = q;
       }
     }
@@ -251,33 +255,35 @@ export class QuizEngine {
       this.startWith = null;
     }
     order = order.slice(0, this.cfg.roundSize);
-    for (const q of order) this.remember(q.id);
+    // Dicatat sesuai urutan pengambilan (bukan urutan tampil) supaya giliran rotasinya tetap.
+    for (const q of [...picks.filter((x) => order.includes(x)), ...order.filter((x) => !picks.includes(x))]) this.remember(q.id);
     return order;
   }
 
   remember(id) {
-    this.recent.push(id);
-    const keep = Math.max(10, Math.floor(this.bank.length * 0.6));
-    if (this.recent.length > keep) this.recent.splice(0, this.recent.length - keep);
+    this.used.set(id, ++this.useSeq);
   }
 
-  // Ambil satu soal tema+tingkat yang belum tampil baru-baru ini. Kalau tema kehabisan,
-  // longgarkan bertahap: abaikan riwayat, lalu tingkat lain, lalu seluruh bank.
+  // Ambil satu soal tema+tingkat secara bergiliran: soal yang belum pernah tampil dulu,
+  // lalu yang paling lama tidak tampil. Jadi semua soal satu topik keluar sebelum ada yang
+  // terulang. Kalau tema kehabisan tingkat itu, ambil tingkat lain, lalu seluruh bank.
   draw(theme, diff, taken) {
-    const avoid = new Set([...this.recent, ...taken.map((q) => q.id)]);
-    if (theme.gen) return this.generators[theme.gen](diff, this.rng, avoid);
+    const last = (id) => this.used.get(id) ?? -1;
+    if (theme.gen) return this.generators[theme.gen](diff, this.rng, new Set(taken.map((q) => q.id)), last);
     const inTheme = (q) => !theme.cats || theme.cats.includes(q.cat);
     const takenIds = new Set(taken.map((q) => q.id));
     const tiers = [
-      (q) => inTheme(q) && q.diff === diff && !avoid.has(q.id),
-      (q) => inTheme(q) && q.diff === diff && !takenIds.has(q.id),
-      (q) => inTheme(q) && !takenIds.has(q.id),
-      (q) => q.diff === diff && !avoid.has(q.id),
-      (q) => !takenIds.has(q.id),
+      (q) => inTheme(q) && q.diff === diff,
+      (q) => inTheme(q),
+      (q) => q.diff === diff,
+      () => true,
     ];
     for (const ok of tiers) {
-      const list = this.bank.filter(ok);
-      if (list.length) return list[Math.floor(this.rng() * list.length)];
+      const list = this.bank.filter((q) => ok(q) && !takenIds.has(q.id));
+      if (!list.length) continue;
+      const oldest = Math.min(...list.map((q) => last(q.id)));
+      const pool = list.filter((q) => last(q.id) === oldest);
+      return pool[Math.floor(this.rng() * pool.length)];
     }
     return null;
   }
@@ -316,6 +322,8 @@ export class QuizEngine {
       counts: new Array(q.options.length).fill(0),
       recent: [], // penjawab terakhir, untuk tumpukan avatar
       likes: 0,
+      shown: q.options.length < 3, // soal Benar/Mitos selalu tampil pilihannya
+      openedBy: null,
       removed: new Set(),
       hintBy: null,
       results: [], // penjawab benar, urut tercepat
@@ -528,8 +536,9 @@ export class QuizEngine {
           const c = this.current;
           const before = c.likes;
           c.likes += n;
-          if (before < this.cfg.hintLikes && c.likes >= this.cfg.hintLikes && this.applyHint()) {
-            this.toast('hint', '', 'Like tembus target. Dua jawaban salah dicoret', now);
+          if (!c.shown && before < this.cfg.hintLikes && c.likes >= this.cfg.hintLikes) {
+            c.shown = true;
+            this.toast('hint', '', `Like tembus ${this.cfg.hintLikes}. Pilihan jawaban dibuka`, now);
           }
         }
         break;
@@ -597,8 +606,18 @@ export class QuizEngine {
     s.start = now;
     s.end = now + s.ms;
     s.frozen = s.freeze && this.freeze(now, s.ms);
-    if (s.hint && this.phase === 'answer' && this.applyHint()) s.hintGiven = true;
-    if (s.hintGiven) this.current.hintBy = s.name;
+    // Gift sedang: buka pilihan jawaban kalau masih terkunci, kalau sudah terbuka coret dua yang salah.
+    if (s.hint && this.phase === 'answer') {
+      const c = this.current;
+      if (!c.shown) {
+        c.shown = true;
+        c.openedBy = s.name;
+        s.hintGiven = 'pilihan';
+      } else if (this.applyHint()) {
+        c.hintBy = s.name;
+        s.hintGiven = '5050';
+      }
+    }
     this.spot = s;
   }
 
@@ -668,6 +687,8 @@ export class QuizEngine {
       correctCount: c ? c.results.length : 0,
       winners: c ? c.results.slice(0, 3) : [],
       wall: c ? c.results.slice(3, 3 + cfg.wallSize) : [],
+      optionsShown: c ? c.shown : true,
+      openedBy: c?.openedBy ?? null,
       removed: c ? [...c.removed] : [],
       hintBy: c?.hintBy ?? null,
       likes: c ? c.likes : 0,

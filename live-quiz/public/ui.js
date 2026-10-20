@@ -100,11 +100,11 @@ function rules(v) {
   const root = el('div');
   const r = v.rules;
   const steps = [
-    ['Ketik ', ['jawabannya'], ' di komentar, persis seperti pilihan di layar.'],
+    ['Ketik ', ['jawabannya'], ' di komentar. Pilihan jawaban terkunci di awal soal.'],
     ['Maksimal ', [`${r.maxTries} tebakan`], ' per soal. Typo kecil tetap dihitung.'],
     ['Benar dapat ', [`${r.points.mudah} / ${r.points.sedang} / ${r.points.sulit} poin`], ` sesuai tingkat, plus bonus cepat sampai +${Math.round(r.speedBonus * 100)}%.`],
     ['Benar ', [`${r.streakFrom} kali beruntun`], `: +${r.streakBonus} poin tiap soal berikutnya.`],
-    [[`${r.hintLikes} like`], ' membuka bantuan: dua pilihan salah dicoret.'],
+    [[`${r.hintLikes} like`], ' membuka empat pilihan jawaban. Tebak lebih dulu, skor lebih tinggi.'],
   ];
   const title = el('div', 'ui btitle');
   title.append('CARA ', el('em', '', 'MAIN'));
@@ -216,10 +216,15 @@ function answer(v, ctx) {
   const list = el('ol', `ui options${two ? ' two' : ''}${shapeBox ? ' compact shapeq' : ''}`);
   const rows = q.options.map((o) => {
     const li = el('li', 'opt');
-    li.append(el('span', 'mk'), el('span', 't', o));
+    li.append(el('span', 'mk'), el('span', 't', o), el('span', 'ph'));
     list.append(li);
     return li;
   });
+  // Selama terkunci, baris pilihan berupa bilah arsir dan papan "terkunci" di tengahnya.
+  const lock = el('div', 'optlock mono');
+  const lockNum = el('b');
+  lock.append(el('span', '', 'PILIHAN TERKUNCI'), lockNum);
+  list.append(lock);
 
   const foot = el('div', 'ui foot mono');
   const instr = el('div', '');
@@ -235,12 +240,13 @@ function answer(v, ctx) {
   const seg = el('div', 'seg');
   const segs = Array.from({ length: 10 }, () => seg.appendChild(el('i')));
   const alabel = el('span');
-  assist.append(el('span', '', 'BANTUAN 50:50'), seg, alabel);
+  assist.append(el('span', '', 'BUKA PILIHAN'), seg, alabel);
   if (two) assist.style.display = 'none';
 
   root.append(head(v), ruler, cat, question, ...(shapeBox ? [shapeBox] : []), list, foot, assist);
   let stackKey = '';
   let lastSec = null;
+  let openAt = v.optionsShown ? 0 : null; // waktu fase saat pilihan terbuka
   const self = {
     node: root,
     cues: [],
@@ -255,7 +261,17 @@ function answer(v, ctx) {
       rise(cat, prog(t, 80, 400));
       words.forEach((w, i) => rise(w, prog(t, 120 + i * 35, 420), 22));
       if (shapeBox) rise(shapeBox, prog(t, 200, 500), 16);
-      rows.forEach((r, i) => slide(r, prog(t, 350 + i * 110, 450), 40));
+      const shown = v.optionsShown;
+      if (shown && openAt === null) openAt = Math.max(t, 350);
+      const from = openAt ?? 350;
+      rows.forEach((r, i) => {
+        r.classList.toggle('locked', !shown);
+        if (shown) slide(r, prog(t, from + i * 110, 450), 40);
+        else rise(r, prog(t, 350 + i * 110, 450), 16);
+        r.classList.toggle('opened', shown && openAt > 350 && t - openAt < 900 + i * 110);
+      });
+      lock.style.opacity = shown ? Math.max(0, 1 - (t - from) / 250) : prog(t, 600, 400);
+      lock.style.transform = shown ? `scale(${1 + 0.3 * clamp((t - from) / 250)})` : '';
       rise(foot, prog(t, 800, 400));
       rise(assist, prog(t, 900, 400));
 
@@ -274,12 +290,14 @@ function answer(v, ctx) {
         stackKey = key;
         stack.replaceChildren(...v.recent.slice(-5).map((p) => avatar(p, 44)));
       }
-      const got = Math.min(v.likes, v.hintLikes);
+      const got = shown ? v.hintLikes : Math.min(v.likes, v.hintLikes);
       const on = Math.floor((got / v.hintLikes) * 10);
       segs.forEach((s, i) => s.classList.toggle('on', i < on));
-      const done = v.removed.length > 0;
-      assist.classList.toggle('done', done);
-      alabel.textContent = v.hintBy ? `DIBUKA OLEH @${v.hintBy}` : done ? 'DUA PILIHAN DICORET' : `${got}/${v.hintLikes} LIKE`;
+      assist.classList.toggle('done', shown);
+      lockNum.textContent = `${Math.min(v.likes, v.hintLikes)}/${v.hintLikes} LIKE`;
+      alabel.textContent = v.hintBy ? `DUA PILIHAN DICORET OLEH @${v.hintBy}`
+        : v.openedBy ? `PILIHAN DIBUKA OLEH @${v.openedBy}`
+        : shown ? 'PILIHAN DIBUKA' : `${got}/${v.hintLikes} LIKE`;
       clock.classList.toggle('frozen', v.frozen);
     },
   };
@@ -821,7 +839,7 @@ export function spotlightLayer(box) {
       if (img) gift.append(img);
       gift.append(giftLine);
       who.append(name, gift);
-      if (s.hintGiven) who.append(el('div', 'spot-hint mono', 'BANTUAN 50:50 DIBUKA UNTUK SEMUA'));
+      if (s.hintGiven) who.append(el('div', 'spot-hint mono', s.hintGiven === 'pilihan' ? 'PILIHAN JAWABAN DIBUKA UNTUK SEMUA' : 'DUA PILIHAN SALAH DICORET'));
       const boost = el('div', 'spot-boost');
       const boostBits = burstBits(boost, 14, [70, 150]);
       const life = el('div', 'spot-life');

@@ -45,12 +45,14 @@ eulerstream.com lalu jalankan dengan `EULER_API_KEY=... npm start -- bayangin.3d
 
 ## Aturan main
 
-- Ketik teks jawaban persis seperti pilihan di layar. Huruf besar-kecil, tanda baca, dan typo
-  kecil dimaafkan. Angka harus persis. Ejaan lain per soal diatur lewat `alias`.
+- Pilihan jawaban **terkunci** di awal soal. Penonton menebak tanpa pilihan; pilihan terbuka
+  setelah soal itu dapat 200 like (atau ada gift sedang). Soal Benar/Mitos selalu terbuka.
+- Ketik teks jawabannya. Huruf besar-kecil, tanda baca, dan typo kecil dimaafkan. Angka harus
+  persis. Ejaan lain per soal diatur lewat `alias`.
 - Maksimal 3 tebakan per soal. Sekali benar, jawaban terkunci.
 - Skor: dasar mudah 100, sedang 150, sulit 200, plus bonus cepat sampai +50% (penuh di
   detik pertama, nol di detik terakhir). Benar 3 kali beruntun atau lebih: +50 per soal.
-- 100 like dalam satu soal membuka bantuan 50:50 (dua pilihan salah dicoret).
+- Target like diatur di `hintLikes` (`public/engine.js`), atau sementara lewat URL `?like=150`.
 - Follow dan share memunculkan ucapan terima kasih.
 
 ### Gift
@@ -61,7 +63,7 @@ foto profil, nama, nama gift, dan boost-nya.
 | Tingkat | Koin | Boost | Tampilan |
 |---|---|---|---|
 | Kecil | 1-9 | poin x2 untuk 1 soal | kartu meluncur di slot bawah |
-| Sedang | 10-99 | poin x2 untuk 3 soal, bantuan 50:50 dibuka atas nama pemberi | kartu lebih besar di slot bawah |
+| Sedang | 10-99 | poin x2 untuk 3 soal, membuka pilihan jawaban atas nama pemberi (kalau sudah terbuka: dua pilihan salah dicoret) | kartu lebih besar di slot bawah |
 | Besar | 100+ | poin x3 untuk 3 soal, timer menjawab berhenti selama sorotan | pita "Sultan Masuk" di slot bawah, bingkai layar menyala |
 
 Semua sorotan muncul di slot bawah (tempat klasemen mini), jadi soal dan pilihan tidak pernah
@@ -81,7 +83,9 @@ boost"; penonton tahu dari sorotan yang muncul. Hindari mengucapkan ajakan seper
 Sekitar 7 menit: cara main, 10 soal (4 mudah, 4 sedang, 2 sulit), papan skor setelah soal 5,
 podium juara ronde, klasemen live, lalu **vote tema** ronde berikutnya (15 detik, penonton
 mengetik nama topik, terbanyak menang). Setiap ronde satu topik penuh. Topik: sains, sejarah, olahraga,
-sepak bola, anime & manga, musik Indonesia, pengetahuan umum, tebak negara, tebak provinsi, tebak bendera.
+sepak bola, anime & manga, musik Indonesia, bahasa Inggris, kampus, pengetahuan umum, tebak negara,
+tebak provinsi, tebak bendera. Soal tiap topik dirotasi: semua soal satu tingkat keluar dulu sebelum
+ada yang terulang (soal peta juga).
 Kartu topik di layar vote memakai warna dan ikon per topik (`public/topics.js`, ikon digambar sendiri). Semua angka bisa
 diubah di `DEFAULTS` pada `public/engine.js`.
 
