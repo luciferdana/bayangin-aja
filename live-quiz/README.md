@@ -11,7 +11,8 @@ Butuh Node.js 20 atau lebih baru.
 ```bash
 cd live-quiz
 npm install
-npm start -- bayangin.3d      # server + baca komentar TikTok LIVE akun ini
+npm run live                  # server + baca komentar TikTok LIVE @bayangin.3d
+# akun lain: npm start -- namaakun   (npm start saja = tanpa TikTok, hanya untuk uji)
 ```
 
 Lalu tambahkan halaman kuis sebagai sumber:

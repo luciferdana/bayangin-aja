@@ -5,6 +5,7 @@
   "main": "server.js",
   "scripts": {
     "start": "node server.js",
+    "live": "node server.js bayangin.3d",
     "test": "node --test test/*.test.js",
     "geo": "node scripts/build-geo.mjs",
     "map": "node scripts/build-map.mjs",
