@@ -138,7 +138,9 @@ export class Globe {
     if (!this.ready) return;
     const k = 1 - Math.exp(-dt / 700);
     if (focus) {
-      this.view.lon += wrap(focus.lon - this.view.lon) * k;
+      // Tetap bergeser pelan di sekitar lokasi supaya layar tidak membeku.
+      const drift = 4 * Math.sin((2 * Math.PI * t) / 14000);
+      this.view.lon += wrap(focus.lon + drift - this.view.lon) * k;
       this.view.lat += (focus.lat - this.view.lat) * k;
     } else {
       this.view.lon = wrap(this.view.lon + (SPIN * dt) / 1000);

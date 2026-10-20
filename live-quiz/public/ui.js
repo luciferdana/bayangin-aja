@@ -684,7 +684,6 @@ export function spotlightLayer(box) {
       Object.assign(parts, { dim, label, rings, av, bits, name, gift, boost, note });
     } else {
       const card = el('div', 'spot-card');
-      const wipe = el('span', 'spot-wipe');
       const av = avatar(s, s.tier === 'sedang' ? 168 : 112);
       const who = el('div', 'spot-who');
       const name = el('div', 'spot-name user', s.name);
@@ -692,9 +691,9 @@ export function spotlightLayer(box) {
       who.append(name, gift);
       if (s.hintGiven) who.append(el('div', 'spot-hint mono', 'BANTUAN 50:50 DIBUKA UNTUK SEMUA'));
       const boost = el('div', 'spot-boost');
-      card.append(wipe, av, who, boost);
+      card.append(av, who, boost);
       node.append(card);
-      Object.assign(parts, { card, wipe, av, name, gift, boost });
+      Object.assign(parts, { card, av, name, gift, boost });
     }
     box.replaceChildren(node);
     return { id: s.id, node, parts };
@@ -750,7 +749,6 @@ export function spotlightLayer(box) {
         const p = Math.min(pin, out);
         P.card.style.opacity = p;
         P.card.style.transform = `translateX(${(1 - pin) * -120}px)`;
-        P.wipe.style.transform = `scaleX(${1 - prog(t, 150, 500)})`;
         P.av.style.transform = `scale(${0.7 + 0.3 * prog(t, 100, 400)})`;
         rise(P.boost, prog(t, 350, 400), 16);
       }

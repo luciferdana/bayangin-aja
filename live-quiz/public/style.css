@@ -254,7 +254,6 @@ body { color: var(--paper); font-family: var(--cond); }
 .spot.kecil .spot-card, .spot.sedang .spot-card { position: absolute; left: 64px; right: 64px; display: flex; align-items: center; gap: 28px; padding: 0 32px 0 24px; background: rgba(5, 6, 8, 0.9); border: 1px solid var(--paper); border-left: 8px solid var(--signal); overflow: hidden; }
 .spot.kecil .spot-card { top: 1392px; height: 160px; }
 .spot.sedang .spot-card { top: 1376px; height: 228px; }
-.spot-wipe { position: absolute; inset: 0; background: var(--signal); transform-origin: 100% 50%; }
 .spot-card .av { border: 4px solid var(--signal); }
 .spot-who { flex: 1; min-width: 0; position: relative; }
 .spot-card .spot-name { font-size: 54px; font-weight: 800; font-stretch: 80%; line-height: 1; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }

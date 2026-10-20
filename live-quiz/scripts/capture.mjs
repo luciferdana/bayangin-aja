@@ -180,14 +180,26 @@ if (mode === 'stills') {
   parts.push(`${mixIn}amix=inputs=${audio.length + 1}:normalize=0:duration=first[a]`);
   const tmpAudio = `${out}.mix.wav`;
   await run(['-v', 'error', '-y', ...inputs, '-filter_complex', parts.join(';'), '-map', '[a]', '-ar', '48000', tmpAudio]);
-  // Loudness: ukur, naikkan secara linear ke sekitar -14 LUFS, lalu limiter supaya puncak
-  // tetap di bawah -1 dBTP setelah encode AAC (0,6 dB menutup yang dipangkas limiter).
-  const measured = JSON.parse((await run(['-nostdin', '-hide_banner', '-i', tmpAudio, '-af',
-    'loudnorm=print_format=json', '-f', 'null', '-'], true)).match(/\{[\s\S]*\}/)[0]);
-  const gain = -14 - Number(measured.input_i) + 0.6;
-  await run(['-v', 'error', '-y', '-i', tmpVideo, '-i', tmpAudio,
-    '-af', `volume=${gain.toFixed(2)}dB,alimiter=limit=0.7:attack=1:release=60:level=false`, '-map', '0:v', '-map', '1:a',
-    '-c:v', 'copy', '-c:a', 'aac', '-b:a', '192k', '-ar', '48000', '-shortest', out]);
+  // Loudness: gain linear + limiter, lalu ukur hasil akhir (setelah encode AAC) dan ulangi
+  // sampai sekitar -14 LUFS dengan puncak di bawah -1 dBTP.
+  const measure = async (file) => {
+    const err = await run(['-nostdin', '-hide_banner', '-i', file, '-af', 'ebur128=peak=true', '-f', 'null', '-'], true);
+    const tail = err.slice(err.lastIndexOf('Summary:'));
+    return { i: Number(tail.match(/I:\s+(-?[\d.]+) LUFS/)[1]), tp: Number(tail.match(/Peak:\s+(-?[\d.]+) dBFS/)[1]) };
+  };
+  let { i: level } = await measure(tmpAudio);
+  let gain = -14 - level;
+  let limit = 0.7;
+  for (let k = 0; k < 4; k++) {
+    await run(['-v', 'error', '-y', '-i', tmpVideo, '-i', tmpAudio,
+      '-af', `volume=${gain.toFixed(2)}dB,alimiter=limit=${limit.toFixed(3)}:attack=1:release=60:level=false`,
+      '-map', '0:v', '-map', '1:a', '-c:v', 'copy', '-c:a', 'aac', '-b:a', '192k', '-ar', '48000', '-shortest', out]);
+    const m = await measure(out);
+    console.log(`audio percobaan ${k + 1}: ${m.i} LUFS, puncak ${m.tp} dBTP`);
+    if (Math.abs(m.i + 14) <= 0.5 && m.tp < -1) break;
+    gain += -14 - m.i;
+    if (m.tp >= -1) limit *= 10 ** ((-1.3 - m.tp) / 20);
+  }
   fs.unlinkSync(tmpVideo);
   fs.unlinkSync(tmpAudio);
   console.log(`preview ${out}: ${total.toFixed(1)} dtk, ${audio.length} bunyi`);
