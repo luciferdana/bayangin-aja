@@ -10,6 +10,7 @@
     "geo": "node scripts/build-geo.mjs",
     "map": "node scripts/build-map.mjs",
     "music": "python3 scripts/make-music.py",
+    "sfx": "python3 scripts/make-sfx.py",
     "stills": "node scripts/capture.mjs stills",
     "preview": "node scripts/capture.mjs preview"
   },

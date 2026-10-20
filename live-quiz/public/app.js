@@ -85,7 +85,6 @@ let last = null;
 let toastIds = new Set();
 
 const play = (name, at) => sound.play(name, at);
-const SPOT_SOUND = { kecil: ['gift'], sedang: ['gift', 'podium'], besar: ['title', 'podium'] };
 
 function render(now) {
   const dt = last === null ? 0 : now - last;
@@ -118,8 +117,7 @@ function render(now) {
   scrimHeavy.style.opacity = heavy.toFixed(3);
 
   lower.update(v);
-  const started = spot.update(v, now);
-  if (started) SPOT_SOUND[started.tier].forEach((n, i) => play(n, now + i * 350));
+  spot.update(v, now, play);
 
   // Bunyi untuk toast follow/share/bantuan yang baru masuk.
   const ids = new Set(v.toasts.map((t) => Math.round(now - t.age)));

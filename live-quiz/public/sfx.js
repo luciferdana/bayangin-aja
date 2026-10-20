@@ -1,8 +1,8 @@
-// SFX Kenney Interface Sounds (CC0) dan musik latar prosedural, lewat WebAudio.
+// SFX Kenney Interface Sounds (CC0), SFX gift dan musik latar prosedural, lewat WebAudio.
 // Setiap bunyi juga dicatat di `log` supaya skrip render bisa menyusun audio yang sama.
 
-const NAMES = ['intro', 'tick', 'tickUrgent', 'timeUp', 'reveal', 'card', 'row', 'podium', 'title', 'gift', 'follow', 'hint'];
-const GAIN = { tick: 0.5, tickUrgent: 0.7, row: 0.6, card: 0.8, gift: 0.6, follow: 0.6 };
+const NAMES = ['intro', 'tick', 'tickUrgent', 'timeUp', 'reveal', 'card', 'row', 'podium', 'title', 'gift', 'follow', 'hint', 'whoosh', 'impact', 'powerup', 'sparkle'];
+const GAIN = { tick: 0.5, tickUrgent: 0.7, row: 0.6, card: 0.8, gift: 0.6, follow: 0.6, whoosh: 0.7, impact: 0.9, powerup: 0.5, sparkle: 0.4 };
 
 export class Sound {
   // bed=false: tanpa musik latar (misalnya kalau musik diputar dari aplikasi lain), SFX tetap.

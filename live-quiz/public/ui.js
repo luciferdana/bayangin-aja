@@ -698,7 +698,7 @@ export function lowerZone(box) {
   let toastKey = '';
   return {
     update(v) {
-      const show = LOWER_PHASES.has(v.phase) && !(v.spotlight && v.spotlight.tier !== 'besar') && v.standings.length > 0;
+      const show = LOWER_PHASES.has(v.phase) && !v.spotlight && v.standings.length > 0;
       wrap.style.opacity = show ? 1 : 0;
       if (!show) return;
       label.replaceChildren(el('b', '', 'KLASEMEN LIVE'), ` · ${v.playerCount} PEMAIN`);
@@ -738,114 +738,197 @@ function giftImage(src, size) {
 }
 
 // ---------------------------------------------------------------- sorotan gift
-// kecil/sedang: kartu di zona bawah. besar: layar penuh, timer kuis berhenti.
-// Nilai koin tidak pernah ditampilkan; yang tampil foto, nama, gift, dan boost.
+// Semua tingkat muncul di slot bawah (tempat klasemen mini), tidak pernah menutupi soal.
+// kecil/sedang: kartu meluncur dari kanan. besar: pita lebar + bingkai layar menyala,
+// timer kuis berhenti. Nilai koin tidak pernah ditampilkan; yang tampil foto, nama, gift, boost.
+const back = (x) => 1 + 2.70158 * (x - 1) ** 3 + 1.70158 * (x - 1) ** 2;
+const backIn = (ms, start, dur) => back(clamp((ms - start) / dur));
+
+// Bunyi per tingkat: [ms sejak sorotan mulai, nama SFX]. Waktunya sama dengan animasinya.
+const SPOT_CUES = {
+  kecil: [[0, 'whoosh'], [260, 'gift'], [520, 'powerup']],
+  sedang: [[0, 'whoosh'], [260, 'gift'], [520, 'powerup'], [700, 'sparkle']],
+  besar: [[0, 'impact'], [120, 'whoosh'], [450, 'title'], [900, 'powerup'], [1050, 'sparkle']],
+};
+
+function burstBits(parent, n, dist) {
+  const burst = parent.appendChild(el('div', 'burst'));
+  return Array.from({ length: n }, (_, i) => {
+    const b = burst.appendChild(el('i'));
+    const a = (i / n) * Math.PI * 2 + (i % 3) * 0.21;
+    return { b, dx: Math.cos(a), dy: Math.sin(a), d: dist[0] + (i % 5) * ((dist[1] - dist[0]) / 4) };
+  });
+}
+
+function fly(bits, p) {
+  const e = ease(p);
+  for (const { b, dx, dy, d } of bits) {
+    b.style.transform = `translate(${dx * d * e}px, ${dy * d * e + 60 * p * p}px) rotate(${e * 240}deg) scale(${1 - 0.6 * p})`;
+    b.style.opacity = p > 0 && p < 1 ? 1 - p * p : 0;
+  }
+}
+
 export function spotlightLayer(box) {
-  let cur = null; // { id, node, parts }
+  let cur = null; // { id, node, parts, fired }
   let lastCount = 0;
   let bumpAt = -1e9;
 
   function build(s) {
     const node = el('div', `spot ${s.tier}`);
     const parts = {};
-    if (s.tier === 'besar') {
-      const dim = el('div', 'spot-dim');
-      const label = el('div', 'spot-label mono', 'SULTAN MASUK');
+    const big = s.tier === 'besar';
+    if (big) {
+      const edge = el('div', 'spot-edge');
+      const band = el('div', 'spot-band');
+      const stripes = el('div', 'spot-stripes');
+      const flash = el('div', 'spot-flash');
       const ringBox = el('div', 'spot-rings');
       const rings = [0, 1, 2].map(() => ringBox.appendChild(el('span', 'ring')));
-      const av = avatar(s, 320);
+      const av = avatar(s, 200);
       ringBox.append(av);
-      const burst = el('div', 'burst');
-      const bits = Array.from({ length: 36 }, (_, i) => {
-        const b = burst.appendChild(el('i'));
-        const a = (i / 36) * Math.PI * 2 + (i % 3) * 0.13;
-        return { b, dx: Math.cos(a), dy: Math.sin(a), d: 260 + (i % 5) * 70 };
-      });
-      ringBox.append(burst);
+      const bits = burstBits(ringBox, 28, [150, 300]);
+      const who = el('div', 'spot-who');
+      const tag = el('div', 'spot-tagrow');
+      const label = el('span', 'spot-label mono', 'SULTAN MASUK');
+      const note = el('span', 'spot-note mono', s.frozen ? 'WAKTU BERHENTI' : '');
+      tag.append(label, note);
       const name = el('div', 'spot-name user', s.name);
       const gift = el('div', 'spot-gift mono');
       const giftLine = el('span');
-      if (s.giftImg) gift.append(giftImage(s.giftImg, 64));
+      if (s.giftImg) gift.append(giftImage(s.giftImg, 52));
       gift.append(giftLine);
-      const boost = el('div', 'spot-boost mono');
-      const note = el('div', 'spot-note mono', s.frozen ? 'WAKTU DIHENTIKAN SEJENAK' : '');
-      node.append(dim, label, ringBox, name, gift, boost, note);
-      Object.assign(parts, { dim, label, rings, av, bits, name, gift, giftLine, boost, note });
+      who.append(tag, name, gift);
+      const boost = el('div', 'spot-boost');
+      const boostBits = burstBits(boost, 16, [90, 190]);
+      const life = el('div', 'spot-life');
+      band.append(stripes, ringBox, who, boost, flash, life);
+      node.append(edge, band);
+      Object.assign(parts, { edge, band, stripes, flash, rings, av, bits, label, note, name, gift, giftLine, boost, boostBits, life });
     } else {
       const card = el('div', 'spot-card');
-      const av = avatar(s, s.tier === 'sedang' ? 168 : 112);
+      const stripes = el('div', 'spot-stripes');
+      const flash = el('div', 'spot-flash');
+      const shine = el('div', 'spot-shine');
+      const avBox = el('div', 'spot-avbox');
+      const ring = el('span', 'spot-ring');
+      const av = avatar(s, s.tier === 'sedang' ? 150 : 116);
+      avBox.append(ring, av);
       const who = el('div', 'spot-who');
       const name = el('div', 'spot-name user', s.name);
       const gift = el('div', 'spot-gift mono');
       const giftLine = el('span');
-      if (s.giftImg) gift.append(giftImage(s.giftImg, s.tier === 'sedang' ? 44 : 36));
+      const img = s.giftImg ? giftImage(s.giftImg, s.tier === 'sedang' ? 48 : 40) : null;
+      if (img) gift.append(img);
       gift.append(giftLine);
       who.append(name, gift);
       if (s.hintGiven) who.append(el('div', 'spot-hint mono', 'BANTUAN 50:50 DIBUKA UNTUK SEMUA'));
       const boost = el('div', 'spot-boost');
-      card.append(av, who, boost);
+      const boostBits = burstBits(boost, 14, [70, 150]);
+      const life = el('div', 'spot-life');
+      card.append(stripes, avBox, who, boost, shine, flash, life);
       node.append(card);
-      Object.assign(parts, { card, av, name, gift, giftLine, boost });
+      Object.assign(parts, { card, stripes, flash, shine, ring, av, img, name, gift, giftLine, boost, boostBits, life });
     }
     box.replaceChildren(node);
-    return { id: s.id, node, parts };
+    return { id: s.id, node, parts, fired: new Set() };
+  }
+
+  function boostText(P, s) {
+    const key = `${s.mult}:${s.questions}`;
+    if (P.boostKey === key) return;
+    P.boostKey = key;
+    P.boostNum?.remove();
+    P.boostSub?.remove();
+    P.boostNum = el('b', '', `x${s.mult}`);
+    P.boostSub = el('span', 'mono', `POIN · ${s.questions} SOAL`);
+    P.boost.prepend(P.boostNum, P.boostSub);
+  }
+
+  // Angka boost dihentak masuk: besar lalu mengecil dengan pantulan, sedikit miring.
+  function punch(P, t, at) {
+    const p = clamp((t - at) / 420);
+    P.boostNum.style.opacity = t >= at ? 1 : 0;
+    P.boostNum.style.transform = `scale(${t >= at ? 2.6 - 1.6 * back(p) : 2.6}) rotate(${-14 * (1 - ease(p))}deg)`;
+    rise(P.boostSub, prog(t, at + 200, 300), 10);
+    fly(P.boostBits, clamp((t - at) / 700));
   }
 
   return {
-    // Kembalikan id sorotan yang baru mulai (untuk bunyi), atau null.
-    update(v, now) {
+    // play(nama, waktuMs): dipanggil saat isyarat bunyi sorotan lewat.
+    update(v, now, play = () => {}) {
       const s = v.spotlight;
       if (!s) {
         if (cur) { box.replaceChildren(); cur = null; }
-        return null;
+        return;
       }
-      let started = null;
       if (!cur || cur.id !== s.id) {
         cur = build(s);
         lastCount = s.count;
-        started = s;
       }
-      if (s.count !== lastCount) { lastCount = s.count; bumpAt = now; }
-      const P = cur.parts;
       const t = s.age;
-      const out = clamp((s.dur - t) / 400);
-      const giftLine = `KIRIM ${s.gift.toUpperCase()}${s.count > 1 ? ` x${s.count}` : ''}`;
-      P.giftLine.textContent = giftLine;
-      const bump = 1 + 0.12 * Math.max(0, 1 - (now - bumpAt) / 250);
-      P.gift.style.transform = `scale(${bump})`;
-      if (s.tier === 'besar') {
-        P.boost.textContent = `POIN x${s.mult} · ${s.questions} SOAL`;
-        P.dim.style.opacity = Math.min(prog(t, 0, 300), out);
-        rise(P.label, Math.min(prog(t, 150, 400), out), 20);
-        const pa = Math.min(prog(t, 200, 600), out);
-        P.av.style.opacity = pa;
-        P.av.style.transform = `scale(${0.6 + 0.4 * pa})`;
-        P.rings.forEach((r, i) => {
-          const ph = ((t + i * 600) % 1800) / 1800;
-          r.style.transform = `scale(${1 + ph * 0.55})`;
-          r.style.opacity = (1 - ph) * out * prog(t, 300, 300);
-        });
-        const pb = clamp((t - 350) / 1100);
-        P.bits.forEach(({ b, dx, dy, d }) => {
-          const e = ease(pb);
-          b.style.transform = `translate(${dx * d * e}px, ${dy * d * e}px) rotate(${e * 180}deg)`;
-          b.style.opacity = pb > 0 && pb < 1 ? 1 - pb : 0;
-        });
-        rise(P.name, Math.min(prog(t, 500, 500), out), 40);
-        rise(P.gift, Math.min(prog(t, 700, 400), out), 20);
-        rise(P.boost, Math.min(prog(t, 900, 400), out), 20);
-        rise(P.note, Math.min(prog(t, 1100, 400), out), 10);
-      } else {
-        P.boost.replaceChildren(el('b', '', `x${s.mult}`), el('span', 'mono', `POIN · ${s.questions} SOAL`));
-        const pin = prog(t, 0, 400);
-        const p = Math.min(pin, out);
-        P.card.style.opacity = p;
-        P.card.style.transform = `translateX(${(1 - pin) * -120}px)`;
-        P.av.style.transform = `scale(${0.7 + 0.3 * prog(t, 100, 400)})`;
-        rise(P.boost, prog(t, 350, 400), 16);
+      for (const [i, [at, name]] of SPOT_CUES[s.tier].entries()) {
+        if (!cur.fired.has(i) && t >= at) {
+          cur.fired.add(i);
+          play(name, now - t + at);
+        }
       }
-      return started;
+      if (s.count !== lastCount) {
+        lastCount = s.count;
+        bumpAt = now;
+        play('gift', now);
+      }
+      const P = cur.parts;
+      const out = clamp((s.dur - t) / 450);
+      const gone = 1 - out;
+      P.giftLine.textContent = `KIRIM ${s.gift.toUpperCase()}${s.count > 1 ? ` x${s.count}` : ''}`;
+      const bp = Math.max(0, 1 - (now - bumpAt) / 300);
+      P.gift.style.transform = `scale(${1 + 0.18 * bp})`;
+      boostText(P, s);
+      P.stripes.style.backgroundPosition = `${(t * 0.06) % 56}px 0`;
+      P.life.style.transform = `scaleX(${clamp(1 - t / s.dur)})`;
+
+      if (s.tier === 'besar') {
+        // Bingkai layar menyala berdenyut; pita terbuka dari tengah dengan guncangan kecil.
+        const pulse = 0.55 + 0.45 * Math.cos(t / 160);
+        P.edge.style.opacity = Math.min(prog(t, 0, 200), out) * (t < 600 ? 1 : pulse);
+        const open = ease(clamp(t / 320));
+        const shake = t < 450 ? Math.sin(t / 18) * 14 * (1 - t / 450) : 0;
+        P.band.style.opacity = out;
+        P.band.style.transform = `translate(${shake}px, ${gone * 80}px) scaleY(${open})`;
+        P.flash.style.opacity = t < 500 ? 0.9 * (1 - clamp(t / 500)) : 0;
+        const pa = backIn(t, 180, 500);
+        P.av.style.transform = `scale(${pa}) rotate(${(1 - clamp((t - 180) / 500)) * -30}deg)`;
+        P.av.style.opacity = t >= 180 ? 1 : 0;
+        P.rings.forEach((r, i) => {
+          const ph = ((t + i * 500) % 1500) / 1500;
+          r.style.transform = `scale(${1 + ph * 0.6})`;
+          r.style.opacity = (1 - ph) * prog(t, 300, 300);
+        });
+        fly(P.bits, clamp((t - 250) / 1100));
+        P.label.style.transform = `scale(${t >= 450 ? 2 - back(clamp((t - 450) / 380)) : 2})`;
+        P.label.style.opacity = t >= 450 ? 1 : 0;
+        rise(P.note, prog(t, 1200, 400), 10);
+        P.name.style.opacity = prog(t, 550, 350);
+        P.name.style.transform = `translateX(${(1 - backIn(t, 550, 500)) * 160}px)`;
+        rise(P.gift, prog(t, 750, 400), 20);
+        punch(P, t, 900);
+      } else {
+        // Kartu meluncur dari kanan dengan pantulan, kilat putih saat mendarat, lalu kilau lewat.
+        const pin = backIn(t, 0, 520);
+        P.card.style.opacity = Math.min(clamp(t / 120), out);
+        P.card.style.transform = `translateX(${(1 - pin) * 1000}px) skewX(${(1 - ease(clamp(t / 520))) * -8}deg) translateY(${gone * 60}px)`;
+        P.flash.style.opacity = t > 200 && t < 560 ? 0.55 * (1 - (t - 200) / 360) : 0;
+        const sh = ((t - 500) % 2200) / 700;
+        P.shine.style.transform = `translateX(${t > 500 && sh < 1 ? -200 + sh * 1300 : -400}px) skewX(-20deg)`;
+        const pa = backIn(t, 160, 460);
+        P.av.style.transform = `scale(${pa})`;
+        P.ring.style.transform = `rotate(${t * 0.15}deg) scale(${pa})`;
+        P.name.style.opacity = prog(t, 260, 300);
+        P.name.style.transform = `translateX(${(1 - prog(t, 260, 360)) * 60}px)`;
+        rise(P.gift, prog(t, 360, 300), 14);
+        if (P.img) P.img.style.transform = `translateY(${Math.sin(t / 170) * 4}px) rotate(${Math.sin(t / 230) * 8}deg)`;
+        punch(P, t, 520);
+      }
     },
   };
 }
-

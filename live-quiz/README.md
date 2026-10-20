@@ -60,9 +60,13 @@ foto profil, nama, nama gift, dan boost-nya.
 
 | Tingkat | Koin | Boost | Tampilan |
 |---|---|---|---|
-| Kecil | 1-9 | poin x2 untuk 1 soal | kartu di area bawah |
-| Sedang | 10-99 | poin x2 untuk 3 soal, bantuan 50:50 dibuka atas nama pemberi | kartu besar |
-| Besar | 100+ | poin x3 untuk 3 soal, timer menjawab berhenti selama sorotan | layar penuh "Sultan Masuk" |
+| Kecil | 1-9 | poin x2 untuk 1 soal | kartu meluncur di slot bawah |
+| Sedang | 10-99 | poin x2 untuk 3 soal, bantuan 50:50 dibuka atas nama pemberi | kartu lebih besar di slot bawah |
+| Besar | 100+ | poin x3 untuk 3 soal, timer menjawab berhenti selama sorotan | pita "Sultan Masuk" di slot bawah, bingkai layar menyala |
+
+Semua sorotan muncul di slot bawah (tempat klasemen mini), jadi soal dan pilihan tidak pernah
+tertutup. Tiap sorotan punya animasi masuk dan SFX sendiri (whoosh, power-up, kilau; gift besar
+ditambah hantaman), dibuat `scripts/make-sfx.py`.
 
 Boost hanya mengalikan poin jawaban yang **benar**; jawaban salah tetap 0. Boost terpakai satu per
 soal yang dijawab. Saat fase vote, gift menambah bobot suara pemberinya. Pemberi gift masuk
