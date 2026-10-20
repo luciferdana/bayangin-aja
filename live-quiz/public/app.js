@@ -68,6 +68,8 @@ function connect() {
     }
     if (msg.type === 'status') {
       if (params.has('debug')) connEl.textContent = msg.text;
+    } else if (msg.type === 'reset') {
+      location.reload(); // mulai ulang dari nol: klasemen, skor, ronde
     } else {
       engine.handle(msg, clock());
     }

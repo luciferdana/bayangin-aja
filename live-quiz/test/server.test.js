@@ -1,6 +1,8 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { chatEvent, giftEvent, likeEvent } from '../server.js';
+import http from 'node:http';
+import WebSocket from 'ws';
+import { chatEvent, giftEvent, likeEvent, startServer } from '../server.js';
 
 // Contoh bentuk data protokol v3 yang dipakai tiktok-live-connector 2.x.
 const user = {
@@ -42,4 +44,19 @@ test('gift format lama (giftDetails) tetap terbaca', () => {
 test('like v3: jumlah dari count', () => {
   assert.equal(likeEvent({ user, count: 15, total: '300' }).count, 15);
   assert.equal(likeEvent({ user: { uniqueId: 'a' }, likeCount: 7 }).count, 7);
+});
+
+test('/reset dari laptop sendiri dikirim ke halaman kuis', async () => {
+  const srv = await startServer({ port: 0, log: () => {} });
+  try {
+    const ws = new WebSocket(`ws://127.0.0.1:${srv.port}/events`);
+    const got = new Promise((ok) => ws.on('message', (m) => JSON.parse(m).type === 'reset' && ok(true)));
+    await new Promise((ok) => ws.on('open', ok));
+    const status = await new Promise((ok) => http.get(`http://127.0.0.1:${srv.port}/reset`, (r) => { r.resume(); ok(r.statusCode); }));
+    assert.equal(status, 200);
+    assert.equal(await got, true);
+    ws.close();
+  } finally {
+    await srv.close();
+  }
 });

@@ -29,6 +29,10 @@ Lalu tambahkan halaman kuis sebagai sumber:
 Server bisa dinyalakan sebelum live dimulai. Kalau akun belum live, server menunggu dan
 mencoba lagi sendiri. Kalau koneksi terputus, server juga menyambung ulang sendiri.
 
+**Reset** (klasemen, skor, dan ronde mulai dari nol, misalnya di awal live baru): buka
+`http://localhost:8787/reset` di browser laptop. Halaman kuis di LIVE Studio langsung mulai ulang.
+Me-restart server saja tidak me-reset klasemen.
+
 Uji tanpa live: `npm start`, lalu buka `http://localhost:8787/?sim=1` (penonton palsu).
 Parameter lain ada di komentar atas `public/app.js` (misalnya `&speed=4`, `&tema=negara`,
 `&bumi=siang`, `&debug=1`). Cahaya Bumi bawaan `nyata`: siang dan malam mengikuti jam sekarang.

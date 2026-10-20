@@ -23,6 +23,20 @@ const TYPES = {
 export function startServer({ port = 8787, username = null, log = console.log } = {}) {
   const server = http.createServer((req, res) => {
     const urlPath = decodeURIComponent(new URL(req.url, 'http://x').pathname);
+    // /reset: semua halaman kuis yang terbuka mulai ulang dari nol (klasemen, skor, ronde).
+    // Hanya dari laptop ini sendiri.
+    if (urlPath === '/reset') {
+      const local = ['127.0.0.1', '::1', '::ffff:127.0.0.1'].includes(req.socket.remoteAddress);
+      if (!local) {
+        res.writeHead(403).end('hanya dari laptop ini');
+        return;
+      }
+      broadcast({ type: 'reset' });
+      log('[reset] kuis dimulai ulang dari nol');
+      res.writeHead(200, { 'content-type': 'text/html; charset=utf-8' })
+        .end('<p style="font:20px sans-serif">Kuis direset: klasemen, skor, dan ronde mulai dari nol. Tab ini boleh ditutup.</p>');
+      return;
+    }
     let file = FILES[urlPath] ?? path.join(PUBLIC, urlPath === '/' ? 'index.html' : urlPath);
     if (!FILES[urlPath] && !file.startsWith(PUBLIC + path.sep)) {
       res.writeHead(403).end();
