@@ -391,3 +391,19 @@ test('setiap ronde satu topik: ronde pertama acak tanpa campuran, vote tanpa cam
     assert.ok(!e.vote.options.some((t) => t.id === 'campuran'));
   }
 });
+
+test('topik dari 2 ronde terakhir tidak muncul di vote', () => {
+  const gens = { negara: () => null, provinsi: () => null, bendera: () => null };
+  for (let seed = 1; seed <= 30; seed++) {
+    const e = new QuizEngine(QUESTIONS, { rng: mulberry32(seed), generators: gens });
+    e.start(0);
+    for (let r = 0; r < 6; r++) {
+      e.openVote(0);
+      const recent = e.themeHistory.slice(-2);
+      assert.equal(e.vote.options.length, 4);
+      for (const o of e.vote.options) assert.ok(!recent.includes(o.id), `ronde ${e.round}: ${o.id} baru dimainkan`);
+      e.closeVote();
+      e.newRound(0);
+    }
+  }
+});

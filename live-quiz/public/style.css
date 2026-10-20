@@ -287,33 +287,41 @@ body { color: var(--paper); font-family: var(--cond); }
 .spot.besar .spot-boost { position: absolute; top: 1060px; left: 0; right: 0; text-align: center; font-size: 40px; font-weight: 700; color: var(--signal); }
 .spot.besar .spot-note { position: absolute; top: 1120px; left: 0; right: 0; text-align: center; font-size: 20px; color: var(--paper); letter-spacing: 0.18em; }
 
-/* ---- Kartu topik ala kartu game (layar vote) ---- */
-.vcards { top: 404px; display: grid; grid-template-columns: 1fr 1fr; gap: 16px; }
-.vcard { position: relative; height: 312px; border-radius: 18px; overflow: hidden; padding: 24px 26px;
-  background: linear-gradient(160deg, color-mix(in srgb, var(--tc) 30%, #0a0b0e) 0%, #0a0b0e 70%);
-  border: 3px solid color-mix(in srgb, var(--tc) 55%, transparent); }
-.vcard .vshine { position: absolute; top: -20%; bottom: -20%; left: 0; width: 45%; pointer-events: none; opacity: 0;
-  background: linear-gradient(90deg, transparent, rgba(255, 255, 255, 0.22), transparent); }
-.vcard.lead { border-color: var(--tc); box-shadow: 0 0 0 3px var(--tc), 0 0 40px color-mix(in srgb, var(--tc) 55%, transparent); }
-.vcard.lead .vshine { opacity: 1; }
-.vcard .vicon { position: absolute; right: 22px; top: 22px; width: 110px; height: 110px; color: var(--tc); }
-.vicon svg { width: 100%; height: 100%; display: block; }
-.vcard .vkw { position: relative; display: flex; flex-direction: column; gap: 4px; }
-.vcard .vtype { font-size: 15px; color: var(--muted); }
-.vcard .vkw b { font-size: 64px; font-weight: 850; font-stretch: 68%; line-height: 0.95; color: var(--paper); }
-.vcard .vlb { position: relative; margin-top: 8px; font-size: 15px; color: var(--tc); }
-.vcard .vn { position: absolute; left: 26px; bottom: 30px; font-family: var(--mono); font-size: 70px; font-weight: 700; line-height: 1; }
-.vcard .vlead { position: absolute; right: 22px; bottom: 34px; padding: 6px 12px; border-radius: 6px; background: var(--tc); color: var(--ink); font-size: 16px; font-weight: 700; opacity: 0; }
-.vcard.lead .vlead { opacity: 1; }
-.vcard .vbar { position: absolute; left: 0; right: 0; bottom: 0; height: 12px; background: var(--tc); transform-origin: 0 50%; transform: scaleX(0); }
+/* ---- Kartu topik seperti kartu remi (layar vote) ---- */
+.vhand { top: 420px; height: 400px; }
+.pcard { position: absolute; top: 0; width: 222px; height: 330px; border-radius: 14px; background: var(--paper); color: var(--ink);
+  box-shadow: 0 18px 40px rgba(0, 0, 0, 0.55); transform-origin: 50% 100%; }
+.pcard .pc-frame { position: absolute; inset: 10px; border: 1px solid rgba(5, 6, 8, 0.22); border-radius: 8px; }
+.pcard .pc-corner { position: absolute; display: flex; flex-direction: column; align-items: center; gap: 2px;
+  color: color-mix(in srgb, var(--tc) 70%, #000); }
+.pcard .pc-corner b { font-size: 38px; font-weight: 850; font-stretch: 70%; line-height: 0.9; }
+.pcard .pc-corner.tl { left: 18px; top: 16px; }
+.pcard .pc-corner.br { right: 18px; bottom: 16px; transform: rotate(180deg); }
+.pcard .pc-mini { width: 24px; height: 24px; }
+.pcard .pc-mini svg, .pcard .pc-icon svg { width: 100%; height: 100%; display: block; }
+.pcard .pc-icon { position: absolute; left: 50%; top: 64px; width: 112px; height: 112px; margin-left: -56px;
+  color: color-mix(in srgb, var(--tc) 70%, #000); }
+.pcard .pc-kw { position: absolute; left: 14px; right: 14px; top: 196px; text-align: center; font-size: 44px; font-weight: 850;
+  font-stretch: 66%; line-height: 1; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.pcard .pc-lb { position: absolute; left: 14px; right: 14px; top: 246px; text-align: center; font-size: 12px; color: #6b665c; }
+.pcard .pc-tag { position: absolute; left: 50%; top: -18px; transform: translateX(-50%); padding: 5px 10px; background: var(--signal);
+  color: var(--ink); font-size: 14px; font-weight: 700; opacity: 0; }
+.pcard.lead { box-shadow: 0 0 0 4px var(--signal), 0 26px 50px rgba(0, 0, 0, 0.6); }
+.pcard.lead .pc-tag { opacity: 1; }
+.vtally { top: 850px; height: 120px; }
+.vt-col { position: absolute; top: 0; width: 222px; display: flex; flex-direction: column; align-items: center; }
+.vt-n { font-family: var(--mono); font-size: 56px; font-weight: 700; line-height: 1; }
+.vt-track { margin-top: 14px; width: 100%; height: 8px; background: var(--hair); }
+.vt-bar { margin-top: -8px; width: 100%; height: 8px; background: var(--tc); transform-origin: 0 50%; transform: scaleX(0); }
 
-/* ---- Lencana topik di layar cara main ---- */
-.topic-badge { top: 236px; left: auto; right: 64px; display: flex; align-items: center; gap: 16px; padding: 14px 20px 14px 14px;
-  border-radius: 16px; border: 3px solid var(--tc); background: color-mix(in srgb, var(--tc) 18%, #0a0b0e); transform-origin: 100% 50%; }
-.topic-badge .vicon { width: 64px; height: 64px; color: var(--tc); }
+/* ---- Lencana topik di layar cara main: kartu mini bermuka kertas ---- */
+.topic-badge { top: 232px; left: auto; right: 64px; display: flex; align-items: center; gap: 14px; padding: 12px 20px 12px 14px;
+  border-radius: 10px; background: var(--paper); color: var(--ink); transform-origin: 100% 50%; box-shadow: 0 10px 30px rgba(0, 0, 0, 0.5); }
+.topic-badge .vicon { width: 56px; height: 56px; color: color-mix(in srgb, var(--tc) 70%, #000); }
+.topic-badge .vicon svg { width: 100%; height: 100%; display: block; }
 .topic-badge .tb-text { display: flex; flex-direction: column; gap: 4px; }
-.topic-badge .tb-text span { font-size: 13px; color: var(--muted); }
-.topic-badge .tb-text b { font-size: 34px; font-weight: 820; font-stretch: 70%; line-height: 1; max-width: 300px; }
+.topic-badge .tb-text span { font-size: 12px; color: #6b665c; }
+.topic-badge .tb-text b { font-size: 32px; font-weight: 850; font-stretch: 68%; line-height: 1; max-width: 300px; }
 
 /* ---- Tebak bendera ---- */
 .mapbox.flagq { display: grid; place-items: center; background: rgba(5, 6, 8, 0.75); }

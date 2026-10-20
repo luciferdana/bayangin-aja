@@ -15,6 +15,7 @@ export const DEFAULTS = {
   podiumMs: 9000,
   standingsMs: 9000,
   voteMs: 15000,
+  voteCooldown: 2, // topik dari sekian ronde terakhir tidak ditawarkan lagi saat vote
   roundSize: 10,
   boardEvery: 5,
   hintLikes: 100,
@@ -184,6 +185,7 @@ export class QuizEngine {
     const topics = this.themes.filter((t) => !t.noVote);
     this.nextTheme = this.themes.find((t) => t.id === theme) ?? topics[Math.floor(rng() * topics.length)];
     this.theme = null;
+    this.themeHistory = []; // id topik tiap ronde, terbaru di akhir
     this.recent = []; // id soal yang baru tampil, supaya tidak cepat berulang
     this.startWith = startWith;
     this.round = 0;
@@ -295,6 +297,8 @@ export class QuizEngine {
   newRound(now) {
     this.round += 1;
     this.theme = this.nextTheme;
+    this.themeHistory.push(this.theme.id);
+    if (this.themeHistory.length > 20) this.themeHistory.shift();
     this.questions = this.buildRound(this.theme);
     this.qIndex = -1;
     this.roundScores = new Map();
@@ -413,9 +417,13 @@ export class QuizEngine {
 
   // ---------------------------------------------------------------- voting tema
 
-  // Empat tema pilihan, tanpa tema ronde ini, minimal satu tema tebak lokasi.
+  // Empat topik pilihan, tanpa topik dari cfg.voteCooldown ronde terakhir, minimal satu topik
+  // tebak lokasi/bendera. Kalau topik tersisa kurang dari 4, larangan dilonggarkan dari yang terlama.
   openVote(now) {
-    const others = shuffle(this.themes.filter((t) => !t.noVote && t.id !== this.theme?.id), this.rng);
+    const votable = this.themes.filter((t) => !t.noVote);
+    let blocked = this.themeHistory.slice(-this.cfg.voteCooldown);
+    while (blocked.length && votable.filter((t) => !blocked.includes(t.id)).length < 4) blocked = blocked.slice(1);
+    const others = shuffle(votable.filter((t) => !blocked.includes(t.id)), this.rng);
     let options = others.slice(0, 4);
     const geo = others.find((t) => t.gen);
     if (geo && !options.some((t) => t.gen)) options[3] = geo;

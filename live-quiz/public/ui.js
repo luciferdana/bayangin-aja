@@ -109,7 +109,7 @@ function rules(v) {
   const title = el('div', 'ui btitle');
   title.append('CARA ', el('em', '', 'MAIN'));
   const st = topicStyle(v.theme?.id);
-  const badge = el('div', 'ui topic-badge');
+  const badge = el('div', 'ui topic-badge');  // kartu mini bermuka kertas, sama seperti kartu vote
   badge.style.setProperty('--tc', st.color);
   const bi = el('span', 'vicon');
   bi.innerHTML = st.icon; // SVG statis dari topics.js
@@ -609,30 +609,45 @@ function vote(v) {
   const title = el('div', 'ui btitle');
   title.append('PILIH ', el('em', '', 'TOPIK'));
   const sub = el('div', 'ui bsub mono', `RONDE ${pad(v.round + 1)} · KETIK NAMA TOPIKNYA DI KOMENTAR · TERBANYAK MENANG`);
-  // Kartu topik ala kartu game: warna dan ikon per topik, kartu yang memimpin menyala.
-  const list = el('div', 'ui vcards');
-  const rows = v.vote.options.map((o) => {
+  // Kartu topik seperti kartu remi di tangan: muka kertas, ikon topik di tengah, indeks di
+  // pojok (A K Q J). Kartu yang memimpin terangkat dari kipas.
+  const RANK = ['A', 'K', 'Q', 'J'];
+  const FAN = [{ r: -5, y: 22 }, { r: -1.7, y: 6 }, { r: 1.7, y: 6 }, { r: 5, y: 22 }];
+  const list = el('div', 'ui vhand');
+  const tally = el('div', 'ui vtally');
+  const rows = v.vote.options.map((o, i) => {
     const st = topicStyle(o.id);
-    const card = el('div', 'vcard');
+    const card = el('div', 'pcard');
     card.style.setProperty('--tc', st.color);
-    const shine = el('span', 'vshine');
-    const icon = el('span', 'vicon');
-    icon.innerHTML = st.icon; // SVG statis dari topics.js, bukan masukan penonton
-    const kw = el('div', 'vkw');
-    kw.append(el('span', 'vtype mono', 'KETIK'), el('b', '', o.keyword.toUpperCase()));
-    const lb = el('div', 'vlb mono', o.label.toUpperCase());
-    const n = el('span', 'vn', '0');
-    const crown = el('span', 'vlead mono', 'MEMIMPIN');
-    const bar = el('span', 'vbar');
-    card.append(shine, icon, kw, lb, n, crown, bar);
+    card.style.left = `${i * 243}px`;
+    const corner = (cls) => {
+      const c = el('div', `pc-corner ${cls}`);
+      const mini = el('span', 'pc-mini');
+      mini.innerHTML = st.icon; // SVG statis dari topics.js, bukan masukan penonton
+      c.append(el('b', '', RANK[i]), mini);
+      return c;
+    };
+    const icon = el('span', 'pc-icon');
+    icon.innerHTML = st.icon;
+    const kw = el('div', 'pc-kw', o.keyword.toUpperCase());
+    const lb = el('div', 'pc-lb mono', o.label.toLowerCase() === o.keyword ? '' : o.label.toUpperCase());
+    const tag = el('span', 'pc-tag mono', 'MEMIMPIN');
+    card.append(el('span', 'pc-frame'), corner('tl'), icon, kw, lb, corner('br'), tag);
     list.append(card);
-    return { li: card, bar, n, shine };
+    const col = el('div', 'vt-col');
+    col.style.left = `${i * 243}px`;
+    const n = el('span', 'vt-n', '0');
+    const bar = el('span', 'vt-bar');
+    bar.style.setProperty('--tc', st.color);
+    col.append(n, el('span', 'vt-track'), bar);
+    tally.append(col);
+    return { li: card, bar, n, fan: FAN[i] };
   });
   const next = el('div', 'ui next mono');
   const nb = el('b');
   const voters = el('span');
   next.append(voters, nb);
-  root.append(head(v, null, { right: 'ronde' }), title, sub, list, next);
+  root.append(head(v, null, { right: 'ronde' }), title, sub, list, tally, next);
   return {
     node: root,
     cues: [{ at: 0, name: 'title' }, ...rows.map((_, i) => ({ at: 400 + i * 150, name: 'row' }))],
@@ -644,15 +659,18 @@ function vote(v) {
       const max = Math.max(1, ...opts.map((o) => o.votes));
       const lead = opts.findIndex((o) => o.votes === max && o.votes > 0);
       rows.forEach((r, i) => {
-        const p = prog(t, 400 + i * 150, 450);
+        // Kartu dibagikan satu per satu dari bawah, lalu yang memimpin terangkat.
+        const p = prog(t, 400 + i * 150, 500);
+        const isLead = i === lead;
+        r.lift = (r.lift ?? 0) + ((isLead ? 1 : 0) - (r.lift ?? 0)) * 0.18;
+        const y = r.fan.y + (1 - p) * 160 - r.lift * 40;
         r.li.style.opacity = p;
-        r.li.style.transform = p >= 1 ? '' : `translateY(${(1 - p) * 40}px) scale(${0.92 + 0.08 * p})`;
+        r.li.style.transform = `translateY(${y}px) rotate(${r.fan.r * (isLead ? 0.4 : 1)}deg)`;
+        r.li.style.zIndex = isLead ? 5 : 1;
+        r.li.classList.toggle('lead', isLead);
         const votes = opts[i]?.votes ?? 0;
         r.n.textContent = votes;
         r.bar.style.transform = `scaleX(${votes / max})`;
-        r.li.classList.toggle('lead', i === lead);
-        // Kilau menyapu kartu yang memimpin.
-        r.shine.style.transform = `translateX(${(((t % 2200) / 2200) * 260) - 130}%) skewX(-20deg)`;
       });
       voters.textContent = `${v.vote?.voters ?? 0} PEMILIH · RONDE ${pad(v.round + 1)} DALAM`;
       rise(next, prog(t, 900, 400));
