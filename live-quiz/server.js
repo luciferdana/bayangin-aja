@@ -76,9 +76,10 @@ function who(data) {
 
 async function connectTikTok(username, broadcast, status) {
   const { TikTokLiveConnection, WebcastEvent, ControlEvent, UserOfflineError } = await import('tiktok-live-connector');
+  // enableExtendedGiftInfo sengaja mati: daftar gift lengkap butuh paket berbayar Euler Stream,
+  // dan nama, nilai koin, serta gambar gift sudah ada di setiap event gift.
   const conn = new TikTokLiveConnection(username, {
     signApiKey: process.env.EULER_API_KEY || undefined,
-    enableExtendedGiftInfo: true,
   });
   let retry = null;
   let delay = 15000;
@@ -88,10 +89,10 @@ async function connectTikTok(username, broadcast, status) {
   conn.on(WebcastEvent.GIFT, (d) => {
     // Gift beruntun (giftType 1) baru dihitung saat beruntunnya selesai.
     if (d.giftDetails?.giftType === 1 && !d.repeatEnd) return;
-    const gift = d.giftDetails?.giftName || d.extendedGiftInfo?.name || 'hadiah';
+    const gift = d.giftDetails?.giftName || 'hadiah';
     const count = Number(d.repeatCount) || 1;
     // Nilai koin hanya untuk menentukan tingkat boost, tidak pernah ditampilkan.
-    const each = Number(d.giftDetails?.diamondCount ?? d.extendedGiftInfo?.diamond_count) || 1;
+    const each = Number(d.giftDetails?.diamondCount) || 1;
     const img = [d.giftDetails?.giftImage, d.giftDetails?.icon].flatMap((i) => i?.url ?? i?.urlList ?? [])
       .find((x) => typeof x === 'string' && /^https?:\/\//.test(x)) ?? d.giftPictureUrl ?? null;
     broadcast({ type: 'gift', ...who(d), gift, count, coins: each * count, giftImage: img });
