@@ -96,6 +96,24 @@ const COUNTRIES = {
   Libya: ['Libya', 'Tripoli', 'sulit', []],
 };
 
+// Kode bendera (flag-icons, MIT) per negara untuk soal Tebak Bendera.
+// Afganistan dan Suriah tidak diberi bendera: bendera resminya berubah/diperdebatkan.
+const FLAGS = {
+  Jepang: 'jp', Australia: 'au', Brasil: 'br', India: 'in', Mesir: 'eg', Italia: 'it', Inggris: 'gb',
+  'Amerika Serikat': 'us', Malaysia: 'my', Thailand: 'th', Filipina: 'ph', 'Arab Saudi': 'sa', Tiongkok: 'cn',
+  Rusia: 'ru', Kanada: 'ca', Meksiko: 'mx', Prancis: 'fr', Spanyol: 'es', 'Korea Selatan': 'kr', Turki: 'tr',
+  Argentina: 'ar', 'Afrika Selatan': 'za', Vietnam: 'vn', Myanmar: 'mm', Kamboja: 'kh', Laos: 'la',
+  'Papua Nugini': 'pg', 'Timor Leste': 'tl', 'Selandia Baru': 'nz', Pakistan: 'pk', Iran: 'ir', Irak: 'iq',
+  Jerman: 'de', Portugal: 'pt', Yunani: 'gr', Norwegia: 'no', Swedia: 'se', Finlandia: 'fi', Polandia: 'pl',
+  Ukraina: 'ua', Peru: 'pe', Chili: 'cl', Kolombia: 'co', Nigeria: 'ng', Kenya: 'ke', Maroko: 'ma',
+  Madagaskar: 'mg', Mongolia: 'mn', Kazakhstan: 'kz', Bangladesh: 'bd', 'Sri Lanka': 'lk', Nepal: 'np',
+  Kuba: 'cu', Belanda: 'nl', Belgia: 'be', Swiss: 'ch', Austria: 'at', Hungaria: 'hu', Rumania: 'ro',
+  Bulgaria: 'bg', Kroasia: 'hr', Irlandia: 'ie', Islandia: 'is', Etiopia: 'et', Sudan: 'sd', Tanzania: 'tz',
+  Angola: 'ao', Namibia: 'na', Botswana: 'bw', Zambia: 'zm', Uruguay: 'uy', Paraguay: 'py', Bolivia: 'bo',
+  Ekuador: 'ec', Venezuela: 've', Uzbekistan: 'uz', Yaman: 'ye', Oman: 'om', Yordania: 'jo', Brunei: 'bn',
+  'Korea Utara': 'kp', Bhutan: 'bt', Aljazair: 'dz', Libya: 'ly',
+};
+
 // Nama di data provinsi -> [nama opsi, ibu kota, tingkat, ejaan lain]
 const PROVINCES = {
   Aceh: ['Aceh', 'Banda Aceh', 'mudah', []],
@@ -232,7 +250,7 @@ for (const f of features) {
   const meta = COUNTRIES[f.properties.name];
   if (!meta) continue;
   const [name, capital, diff, alias] = meta;
-  countries[name] = { name, capital, diff, alias, ...region(rings, 0.05, 4) };
+  countries[name] = { name, capital, diff, alias, flag: FLAGS[name] ?? null, ...region(rings, 0.05, 4) };
 }
 const missing = Object.keys(COUNTRIES).filter((k) => !countries[COUNTRIES[k][0]]);
 if (missing.length) throw new Error(`negara tidak ditemukan: ${missing.join(', ')}`);
@@ -254,4 +272,12 @@ const out = {
   provinces,
 };
 fs.writeFileSync(new URL('../public/data/geo.json', import.meta.url), JSON.stringify(out));
+
+// Salin SVG bendera yang dipakai ke public/flags.
+const flagDir = new URL('../public/flags/', import.meta.url);
+fs.mkdirSync(flagDir, { recursive: true });
+for (const code of Object.values(FLAGS)) {
+  fs.copyFileSync(new URL(`../node_modules/flag-icons/flags/4x3/${code}.svg`, import.meta.url), new URL(`${code}.svg`, flagDir));
+}
+fs.copyFileSync(new URL('../node_modules/flag-icons/LICENSE', import.meta.url), new URL('LICENSE-flag-icons.txt', flagDir));
 console.log(`geo.json: ${Object.keys(countries).length} negara, ${Object.keys(provinces).length} provinsi, ${background.length} cincin latar`);

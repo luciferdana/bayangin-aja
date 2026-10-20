@@ -54,3 +54,18 @@ test('ronde campuran memuat satu soal negara dan satu provinsi', () => {
   assert.equal(e.questions.filter((q) => q.gen === 'negara').length, 1);
   assert.equal(e.questions.filter((q) => q.gen === 'provinsi').length, 1);
 });
+
+test('setiap soal tebak bendera punya gambar dan bisa diketik', () => {
+  const withFlag = Object.values(geo.countries).filter((c) => c.flag);
+  assert.ok(withFlag.length >= 80);
+  for (const t of withFlag) {
+    const q = geoQuestion(geo, 'bendera', t);
+    assert.ok(fs.existsSync(new URL(`../public/${q.flag}`, import.meta.url)), q.flag);
+    assert.equal(q.shape.kind, 'negara');
+    const m = buildMatcher(q);
+    q.options.forEach((o, i) => assert.equal(matchAnswer(o, m), i, `${q.id}: "${o}"`));
+  }
+  const gens = makeGenerators(geo);
+  const q = gens.bendera('sulit', mulberry32(2));
+  assert.ok(q.flag && q.gen === 'bendera');
+});

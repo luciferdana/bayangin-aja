@@ -32,7 +32,8 @@ const extra = process.env.QUIZ_PARAMS ? `&${process.env.QUIZ_PARAMS}` : '';
 const jam = /(^|&)jam=/.test(extra) ? '' : '&jam=2026-10-20T12:00:00Z';
 // Halaman deterministik: memuat ulang selalu menghasilkan urutan kejadian yang sama.
 async function fresh() {
-  await page.goto(`http://localhost:${srv.port}/?sim=1&simgift=0&capture=1&seed=7&viewers=80&q=komodo${jam}${extra}`);
+  const q = /(^|&)(q|tema)=/.test(extra) ? '' : '&q=komodo';
+  await page.goto(`http://localhost:${srv.port}/?sim=1&simgift=0&capture=1&seed=7&viewers=80${q}${jam}${extra}`);
   await page.waitForFunction(() => document.title === 'ready', null, { timeout: 120000 });
 }
 await fresh();

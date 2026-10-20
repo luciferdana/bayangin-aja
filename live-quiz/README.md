@@ -69,8 +69,9 @@ boost"; penonton tahu dari sorotan yang muncul. Hindari mengucapkan ajakan seper
 
 Sekitar 7 menit: cara main, 10 soal (4 mudah, 4 sedang, 2 sulit), papan skor setelah soal 5,
 podium juara ronde, klasemen live, lalu **vote tema** ronde berikutnya (15 detik, penonton
-mengetik nama tema). Tema: campuran, sains, sejarah, olahraga, umum, tebak negara, tebak provinsi.
-Ronde campuran selalu memuat satu soal tebak negara dan satu tebak provinsi. Semua angka bisa
+mengetik nama topik, terbanyak menang). Setiap ronde satu topik penuh. Topik: sains, sejarah, olahraga,
+sepak bola, anime & manga, musik Indonesia, pengetahuan umum, tebak negara, tebak provinsi, tebak bendera.
+Kartu topik di layar vote memakai warna dan ikon per topik (`public/topics.js`, ikon digambar sendiri). Semua angka bisa
 diubah di `DEFAULTS` pada `public/engine.js`.
 
 ### Tebak negara dan provinsi
@@ -79,6 +80,8 @@ Soal dibuat otomatis dari peta: wilayah jawaban disorot, tiga pengecoh diambil d
 terdekat. Data: Natural Earth (86 negara terpilih, domain publik) dan peta 38 provinsi
 (CC BY 4.0, atribusi di `scripts/data/SUMBER.md` dan di pojok peta). Nama, ibu kota, tingkat,
 dan ejaan lain ada di `scripts/build-geo.mjs`; jalankan `npm run geo` setelah mengubahnya.
+Tebak Bendera memakai SVG dari `flag-icons` (MIT, `public/flags/LICENSE-flag-icons.txt`); saat jawaban
+dibuka, lokasi negaranya ditunjukkan di peta.
 
 ## Menambah soal
 

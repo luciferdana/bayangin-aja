@@ -19,6 +19,7 @@
     "ws": "^8.22.0"
   },
   "devDependencies": {
+    "flag-icons": "^7.2.3",
     "topojson-client": "^3.1.0",
     "world-atlas": "^2.0.2"
   },

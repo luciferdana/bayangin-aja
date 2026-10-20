@@ -48,10 +48,14 @@ export const THEMES = [
   { id: 'campuran', label: 'Campuran', keyword: 'campuran', alias: ['campur', 'acak', 'random', 'semua'], noVote: true },
   { id: 'sains', label: 'Sains dan Alam', keyword: 'sains', cats: ['Sains', 'Tubuh Manusia', 'Hewan dan Alam', 'Luar Angkasa'], alias: ['ipa', 'alam'] },
   { id: 'sejarah', label: 'Sejarah', keyword: 'sejarah', cats: ['Sejarah Indonesia', 'Sejarah Dunia'] },
-  { id: 'olahraga', label: 'Olahraga', keyword: 'olahraga', cats: ['Olahraga'], alias: ['sport', 'bola'] },
+  { id: 'olahraga', label: 'Olahraga', keyword: 'olahraga', cats: ['Olahraga'], alias: ['sport'] },
+  { id: 'bola', label: 'Sepak Bola', keyword: 'bola', cats: ['Sepak Bola'], alias: ['sepak bola', 'sepakbola', 'football'] },
+  { id: 'anime', label: 'Anime & Manga', keyword: 'anime', cats: ['Anime dan Manga'], alias: ['manga', 'wibu'] },
+  { id: 'musik', label: 'Musik Indonesia', keyword: 'musik', cats: ['Musik Indonesia'], alias: ['lagu', 'music'] },
   { id: 'umum', label: 'Pengetahuan Umum', keyword: 'umum', cats: ['Geografi', 'Bahasa dan Budaya', 'Teknologi', 'Makanan', 'Seni dan Musik', 'Angka dan Skala', 'Benar atau Mitos'], alias: ['budaya'] },
   { id: 'negara', label: 'Tebak Negara', keyword: 'negara', gen: 'negara' },
   { id: 'provinsi', label: 'Tebak Provinsi', keyword: 'provinsi', gen: 'provinsi' },
+  { id: 'bendera', label: 'Tebak Bendera', keyword: 'bendera', gen: 'bendera', alias: ['flag'] },
 ];
 
 // ---- Pencocokan jawaban ketik ----

@@ -2,6 +2,7 @@
 // Semua animasi dihitung dari view.elapsed (bukan CSS transition), supaya hasil live dan
 // render frame-per-frame sama persis. Pergantian fase memakai cut keras.
 import { MapView, ShapeView, formatCoord } from './map.js';
+import { topicStyle } from './topics.js';
 
 const clamp = (x) => Math.max(0, Math.min(1, x));
 const ease = (x) => 1 - (1 - x) ** 3;
@@ -107,6 +108,14 @@ function rules(v) {
   ];
   const title = el('div', 'ui btitle');
   title.append('CARA ', el('em', '', 'MAIN'));
+  const st = topicStyle(v.theme?.id);
+  const badge = el('div', 'ui topic-badge');
+  badge.style.setProperty('--tc', st.color);
+  const bi = el('span', 'vicon');
+  bi.innerHTML = st.icon; // SVG statis dari topics.js
+  const bt = el('div', 'tb-text');
+  bt.append(el('span', 'mono', 'TOPIK RONDE INI'), el('b', '', (v.theme?.label ?? 'Campuran').toUpperCase()));
+  badge.append(bi, bt);
   const sub = el('div', 'ui bsub mono');
   sub.append(`RONDE ${pad(v.round)} · TOPIK `, el('b', '', (v.theme?.label ?? 'Campuran').toUpperCase()), ` · ${v.qTotal || 10} SOAL · ${r.answerSec} DETIK`);
   const list = el('ol', 'ui steps');
@@ -120,13 +129,16 @@ function rules(v) {
   next.style.top = '1100px';
   const nb = el('b');
   next.append(el('span', '', 'SOAL PERTAMA DALAM'), nb);
-  root.append(head(v, null, { right: 'ronde' }), title, sub, list, next);
+  root.append(head(v, null, { right: 'ronde' }), title, badge, sub, list, next);
   return {
     node: root,
     cues: [{ at: 0, name: 'title' }, ...items.map((_, i) => ({ at: 500 + i * 260, name: 'row' }))],
     update(v) {
       const t = v.elapsed;
       rise(title, prog(t, 0, 500));
+      const pb = prog(t, 150, 500);
+      badge.style.opacity = pb;
+      badge.style.transform = pb >= 1 ? '' : `scale(${0.85 + 0.15 * pb})`;
       rise(sub, prog(t, 150, 500));
       items.forEach((li, i) => slide(li, prog(t, 500 + i * 260, 500), 60));
       rise(next, prog(t, 1900, 500));
@@ -184,7 +196,14 @@ function answer(v, ctx) {
   // Soal tebak lokasi: peta besar di tengah, pilihan dipadatkan di bawahnya.
   let shapeBox = null;
   let shapeMap = null;
-  if (q.shape && ctx.geoData) {
+  if (q.flag) {
+    shapeBox = el('div', 'ui mapbox shapeq flagq');
+    const img = new Image();
+    img.className = 'flag';
+    img.alt = '';
+    img.src = q.flag;
+    shapeBox.append(img, el('div', 'tag mono', q.source.toUpperCase()));
+  } else if (q.shape && ctx.geoData) {
     shapeBox = el('div', 'ui mapbox shapeq');
     const cv = el('canvas');
     cv.width = 1904;
@@ -590,16 +609,24 @@ function vote(v) {
   const title = el('div', 'ui btitle');
   title.append('PILIH ', el('em', '', 'TOPIK'));
   const sub = el('div', 'ui bsub mono', `RONDE ${pad(v.round + 1)} · KETIK NAMA TOPIKNYA DI KOMENTAR · TERBANYAK MENANG`);
-  const list = el('ol', 'ui votes');
+  // Kartu topik ala kartu game: warna dan ikon per topik, kartu yang memimpin menyala.
+  const list = el('div', 'ui vcards');
   const rows = v.vote.options.map((o) => {
-    const li = el('li', 'vrow');
-    const bar = el('span', 'vbar');
+    const st = topicStyle(o.id);
+    const card = el('div', 'vcard');
+    card.style.setProperty('--tc', st.color);
+    const shine = el('span', 'vshine');
+    const icon = el('span', 'vicon');
+    icon.innerHTML = st.icon; // SVG statis dari topics.js, bukan masukan penonton
+    const kw = el('div', 'vkw');
+    kw.append(el('span', 'vtype mono', 'KETIK'), el('b', '', o.keyword.toUpperCase()));
+    const lb = el('div', 'vlb mono', o.label.toUpperCase());
     const n = el('span', 'vn', '0');
-    const who = el('div', 'vw');
-    who.append(el('span', 'kw', o.keyword.toUpperCase()), el('span', 'lb mono', o.label.toLowerCase() === o.keyword ? '' : o.label.toUpperCase()));
-    li.append(bar, who, n);
-    list.append(li);
-    return { li, bar, n };
+    const crown = el('span', 'vlead mono', 'MEMIMPIN');
+    const bar = el('span', 'vbar');
+    card.append(shine, icon, kw, lb, n, crown, bar);
+    list.append(card);
+    return { li: card, bar, n, shine };
   });
   const next = el('div', 'ui next mono');
   const nb = el('b');
@@ -617,11 +644,15 @@ function vote(v) {
       const max = Math.max(1, ...opts.map((o) => o.votes));
       const lead = opts.findIndex((o) => o.votes === max && o.votes > 0);
       rows.forEach((r, i) => {
-        slide(r.li, prog(t, 400 + i * 150, 450), 60);
+        const p = prog(t, 400 + i * 150, 450);
+        r.li.style.opacity = p;
+        r.li.style.transform = p >= 1 ? '' : `translateY(${(1 - p) * 40}px) scale(${0.92 + 0.08 * p})`;
         const votes = opts[i]?.votes ?? 0;
         r.n.textContent = votes;
         r.bar.style.transform = `scaleX(${votes / max})`;
         r.li.classList.toggle('lead', i === lead);
+        // Kilau menyapu kartu yang memimpin.
+        r.shine.style.transform = `translateX(${(((t % 2200) / 2200) * 260) - 130}%) skewX(-20deg)`;
       });
       voters.textContent = `${v.vote?.voters ?? 0} PEMILIH · RONDE ${pad(v.round + 1)} DALAM`;
       rise(next, prog(t, 900, 400));
