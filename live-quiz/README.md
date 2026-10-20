@@ -20,6 +20,9 @@ Lalu tambahkan halaman kuis sebagai sumber:
 - **TikTok LIVE Studio**: Add source → **Link**, URL **`http://localtest.me:8787`**
   (LIVE Studio menolak `localhost`; `localtest.me` tetap mengarah ke laptop sendiri).
   Nyalakan Custom resolution **1080 x 1920**, Turn on sound, dan Always keep active.
+  Kalau kotak sumbernya tetap melebar (kuis kecil di tengah dengan pinggir hitam), LIVE Studio
+  membatasi tinggi sumber sesuai layar laptop: pakai **720 x 1280** (atau 540 x 960), Apply, lalu
+  klik kanan sumber → Reset (ukuran sumber, bukan skor) → Full screen → Fit to screen.
   Jangan pakai Window capture: hasilnya buram karena tinggi layar laptop di bawah 1920 piksel.
 - Pakai musik sendiri (misalnya Spotify)? Tambahkan `/?musik=0` di URL supaya musik latar kuis
   mati dan tidak tabrakan; bunyi tick, jawaban, dan gift tetap ada.
