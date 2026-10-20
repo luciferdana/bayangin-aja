@@ -5,7 +5,8 @@
 //   ?sim=1          penonton palsu (tanpa TikTok)    &viewers=60  &simgift=0 tanpa gift acak
 //   &speed=4        percepat waktu (uji)             &seed=7   hasil acak tetap
 //   &q=komodo       mulai dari soal tertentu         &like=100 target like bantuan
-//   &tema=negara    tema ronde pertama (campuran, sains, sejarah, olahraga, umum, negara, provinsi)
+//   &tema=negara    topik ronde pertama (sains, sejarah, olahraga, umum, negara, provinsi, campuran);
+//                   tanpa ini dipilih acak, ronde berikutnya lewat vote penonton
 //   &mute=1         tanpa suara                       &debug=1  tampilkan status koneksi
 //   &musik=0        tanpa musik latar (SFX tetap), misalnya saat musik dari Spotify
 //   &bumi=nyata     cahaya Bumi: nyata (sesuai jam), siang, senja
@@ -142,7 +143,7 @@ async function boot() {
   engine = new QuizEngine(QUESTIONS, {
     rng: seed ? mulberry32(Number(seed)) : Math.random,
     startWith: params.get('q'),
-    theme: params.get('tema') || 'campuran',
+    theme: params.get('tema'),
     generators: ctx.geoData ? makeGenerators(ctx.geoData) : {},
     config: { hintLikes: num('like', DEFAULTS.hintLikes) },
   });

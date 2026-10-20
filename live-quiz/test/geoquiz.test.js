@@ -49,7 +49,7 @@ test('ronde tebak provinsi: 10 soal, tidak ada wilayah ganda', () => {
 });
 
 test('ronde campuran memuat satu soal negara dan satu provinsi', () => {
-  const e = new QuizEngine(QUESTIONS, { rng: mulberry32(4), generators: makeGenerators(geo) });
+  const e = new QuizEngine(QUESTIONS, { rng: mulberry32(4), theme: 'campuran', generators: makeGenerators(geo) });
   e.start(0);
   assert.equal(e.questions.filter((q) => q.gen === 'negara').length, 1);
   assert.equal(e.questions.filter((q) => q.gen === 'provinsi').length, 1);

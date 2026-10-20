@@ -75,7 +75,7 @@ test('ronde berisi campuran kesulitan tanpa soal ganda', () => {
 });
 
 test('soal tidak berulang sampai bank habis', () => {
-  const e = make();
+  const e = make({ theme: 'campuran' });
   e.start(0);
   const seen = new Set(e.questions.map((q) => q.id));
   for (let r = 0; r < 2; r++) {
@@ -380,4 +380,14 @@ test('editDistance', () => {
   assert.equal(editDistance('gitar', 'gitarr'), 1);
   assert.equal(editDistance('abc', 'xyz'), 3);
   assert.ok(editDistance('jupiter', 'saturnus', 2) > 2);
+});
+
+test('setiap ronde satu topik: ronde pertama acak tanpa campuran, vote tanpa campuran', () => {
+  for (let seed = 1; seed <= 20; seed++) {
+    const e = new QuizEngine(QUESTIONS, { rng: mulberry32(seed), generators: { negara: () => null, provinsi: () => null } });
+    e.start(0);
+    assert.notEqual(e.view(0).theme.id, 'campuran');
+    e.openVote(0);
+    assert.ok(!e.vote.options.some((t) => t.id === 'campuran'));
+  }
 });

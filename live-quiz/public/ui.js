@@ -71,7 +71,7 @@ function fit(node, { max, min, height, oneLine }) {
 function head(v, ctx, { right = 'soal' } = {}) {
   const h = el('div', 'ui head');
   const mark = el('div', 'mark', 'BAYANGIN AJA');
-  mark.append(el('small', '', `KUIS LANGSUNG · RONDE ${pad(v.round)}`));
+  mark.append(el('small', '', `RONDE ${pad(v.round)} · ${(v.theme?.label ?? 'Kuis').toUpperCase()}`));
   const q = el('div', 'qcount', right === 'soal' ? 'SOAL' : 'RONDE');
   const b = el('b');
   if (right === 'soal') {
@@ -108,7 +108,7 @@ function rules(v) {
   const title = el('div', 'ui btitle');
   title.append('CARA ', el('em', '', 'MAIN'));
   const sub = el('div', 'ui bsub mono');
-  sub.append(`RONDE ${pad(v.round)} · TEMA `, el('b', '', (v.theme?.label ?? 'Campuran').toUpperCase()), ` · ${v.qTotal || 10} SOAL · ${r.answerSec} DETIK`);
+  sub.append(`RONDE ${pad(v.round)} · TOPIK `, el('b', '', (v.theme?.label ?? 'Campuran').toUpperCase()), ` · ${v.qTotal || 10} SOAL · ${r.answerSec} DETIK`);
   const list = el('ol', 'ui steps');
   const items = steps.map((s, i) => {
     const li = el('li');
@@ -522,7 +522,7 @@ function standings(v) {
     subText: `TOTAL SKOR SEJAK LIVE DIMULAI · ${v.playerCount} PEMAIN`,
     entries: v.standings,
     dense: true,
-    nextLabel: 'PILIH TEMA RONDE BERIKUTNYA DALAM',
+    nextLabel: 'PILIH TOPIK RONDE BERIKUTNYA DALAM',
     fans: v.supporters,
   });
 }
@@ -588,8 +588,8 @@ function podium(v) {
 function vote(v) {
   const root = el('div');
   const title = el('div', 'ui btitle');
-  title.append('PILIH ', el('em', '', 'TEMA'));
-  const sub = el('div', 'ui bsub mono', `RONDE ${pad(v.round + 1)} · KETIK NAMA TEMANYA DI KOMENTAR`);
+  title.append('PILIH ', el('em', '', 'TOPIK'));
+  const sub = el('div', 'ui bsub mono', `RONDE ${pad(v.round + 1)} · KETIK NAMA TOPIKNYA DI KOMENTAR · TERBANYAK MENANG`);
   const list = el('ol', 'ui votes');
   const rows = v.vote.options.map((o) => {
     const li = el('li', 'vrow');

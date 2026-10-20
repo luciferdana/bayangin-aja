@@ -44,7 +44,8 @@ export const DEFAULTS = {
 // Tema ronde. `keyword` diketik penonton saat voting. `cats` memilih kategori bank soal,
 // `gen` memakai generator soal peta.
 export const THEMES = [
-  { id: 'campuran', label: 'Campuran', keyword: 'campuran', alias: ['campur', 'acak', 'random', 'semua'] },
+  // Campuran tidak ikut vote: tiap ronde satu topik penuh. Hanya lewat ?tema=campuran.
+  { id: 'campuran', label: 'Campuran', keyword: 'campuran', alias: ['campur', 'acak', 'random', 'semua'], noVote: true },
   { id: 'sains', label: 'Sains dan Alam', keyword: 'sains', cats: ['Sains', 'Tubuh Manusia', 'Hewan dan Alam', 'Luar Angkasa'], alias: ['ipa', 'alam'] },
   { id: 'sejarah', label: 'Sejarah', keyword: 'sejarah', cats: ['Sejarah Indonesia', 'Sejarah Dunia'] },
   { id: 'olahraga', label: 'Olahraga', keyword: 'olahraga', cats: ['Olahraga'], alias: ['sport', 'bola'] },
@@ -164,7 +165,8 @@ const cleanAvatar = (url) => (typeof url === 'string' && /^(https?:\/\/|data:ima
 
 export class QuizEngine {
   // generators: { negara: (diff, rng, avoid) => soal, provinsi: ... } untuk tema peta.
-  constructor(bank, { config = {}, rng = Math.random, startWith = null, theme = 'campuran', generators = {} } = {}) {
+  // theme: topik ronde pertama; tanpa itu dipilih acak dari topik yang bisa di-vote.
+  constructor(bank, { config = {}, rng = Math.random, startWith = null, theme = null, generators = {} } = {}) {
     this.bank = bank;
     this.cfg = {
       ...DEFAULTS,
@@ -175,7 +177,8 @@ export class QuizEngine {
     this.rng = rng;
     this.generators = generators;
     this.themes = THEMES.filter((t) => !t.gen || generators[t.gen]);
-    this.nextTheme = this.themes.find((t) => t.id === theme) ?? this.themes[0];
+    const topics = this.themes.filter((t) => !t.noVote);
+    this.nextTheme = this.themes.find((t) => t.id === theme) ?? topics[Math.floor(rng() * topics.length)];
     this.theme = null;
     this.recent = []; // id soal yang baru tampil, supaya tidak cepat berulang
     this.startWith = startWith;
@@ -408,7 +411,7 @@ export class QuizEngine {
 
   // Empat tema pilihan, tanpa tema ronde ini, minimal satu tema tebak lokasi.
   openVote(now) {
-    const others = shuffle(this.themes.filter((t) => t.id !== this.theme?.id), this.rng);
+    const others = shuffle(this.themes.filter((t) => !t.noVote && t.id !== this.theme?.id), this.rng);
     let options = others.slice(0, 4);
     const geo = others.find((t) => t.gen);
     if (geo && !options.some((t) => t.gen)) options[3] = geo;
