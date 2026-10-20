@@ -442,8 +442,11 @@ function leaderboard(v, { titleParts, subText, entries, dense, nextLabel, fans =
   const sub = el('div', 'ui bsub mono', subText);
   const parts = [head(v, null, { right: v.phase === 'board' ? 'soal' : 'ronde' }), title, sub];
   let rows = [];
+  let scan = null;
   if (entries.length) {
     const list = el('ol', `ui board${dense ? ' dense' : ''}`);
+    // Pita pindai pelan di atas daftar: layar tetap hidup setelah semua baris masuk.
+    scan = el('span', 'scan');
     rows = entries.map((e, i) => {
       const li = el('li');
       const s = el('span', 's', '0');
@@ -453,13 +456,15 @@ function leaderboard(v, { titleParts, subText, entries, dense, nextLabel, fans =
       list.append(li);
       return { li, s, score: e.score };
     });
+    list.append(scan); // setelah baris, supaya li:first-child tetap baris juara
     parts.push(list);
   } else {
     parts.push(el('div', 'ui empty', 'Belum ada skor. Ketik jawabanmu di soal berikutnya.'));
   }
   const next = el('div', 'ui next mono');
   const nb = el('b');
-  next.append(el('span', '', nextLabel), nb);
+  const countdown = el('span', 'countdown');
+  next.append(el('span', '', nextLabel), nb, countdown);
   parts.push(next);
   // Pendukung live: yang mengirim gift selama sesi ini, terbaru dulu.
   let fanBox = null;
@@ -492,6 +497,12 @@ function leaderboard(v, { titleParts, subText, entries, dense, nextLabel, fans =
       rise(next, prog(t, 600, 400));
       if (fanBox) rise(fanBox, prog(t, 1600, 500));
       nb.textContent = secs(v.remaining);
+      countdown.style.transform = `scaleX(${clamp(v.remaining / v.duration)})`;
+      if (scan) {
+        const ph = (t % 4000) / 4000;
+        scan.style.transform = `translateY(${ph * 100}%)`;
+        scan.style.opacity = prog(t, 1500, 600);
+      }
     },
   };
 }
@@ -534,14 +545,23 @@ function podium(v) {
     col.style.left = `${s.x}px`;
     const top = el('div');
     Object.assign(top.style, { display: 'flex', flexDirection: 'column', alignItems: 'center' });
-    if (s.rank === 1) top.append(el('span', 'crown', 'JUARA'));
-    top.append(avatar(e, s.size), el('div', 'n', e.name), el('div', 's', `${e.score.toLocaleString('id-ID')} POIN · ${e.correct} BENAR`));
+    let rings = [];
+    if (s.rank === 1) {
+      top.append(el('span', 'crown', 'JUARA'));
+      const halo = el('div', 'halo');
+      rings = [0, 1].map(() => halo.appendChild(el('span', 'ring')));
+      halo.append(avatar(e, s.size));
+      top.append(halo);
+    } else {
+      top.append(avatar(e, s.size));
+    }
+    top.append(el('div', 'n', e.name), el('div', 's', `${e.score.toLocaleString('id-ID')} POIN · ${e.correct} BENAR`));
     const ped = el('div', 'ped');
     ped.style.height = `${s.ped}px`;
     ped.append(el('span', '', String(s.rank)));
     col.append(top, ped);
     stage.append(col);
-    return { top, ped, at: s.at };
+    return { top, ped, at: s.at, rings };
   });
   root.append(head(v, null, { right: 'ronde' }), title, sub, stage, el('div', 'ui podium-base'));
   return {
@@ -554,6 +574,11 @@ function podium(v) {
       for (const c of cols) {
         c.ped.style.transform = `scaleY(${prog(t, c.at, 500)})`;
         rise(c.top, prog(t, c.at + 350, 500), -30);
+        c.rings.forEach((r, i) => {
+          const ph = ((t + i * 1000) % 2000) / 2000;
+          r.style.transform = `scale(${1 + ph * 0.6})`;
+          r.style.opacity = (1 - ph) * prog(t, c.at + 600, 400);
+        });
       }
     },
   };

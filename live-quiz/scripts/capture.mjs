@@ -108,6 +108,9 @@ const SHOTS = [
   ['vote', 10, 9000],
 ];
 
+// STILL_SHOTS='[["podium",10,6000]]' mengganti daftar still bawaan.
+if (process.env.STILL_SHOTS) SHOTS.splice(0, SHOTS.length, ...JSON.parse(process.env.STILL_SHOTS));
+
 if (mode === 'stills') {
   fs.mkdirSync(out, { recursive: true });
   for (const [phase, q, at, gifts] of SHOTS) {
@@ -140,6 +143,8 @@ if (mode === 'stills') {
     ['standings', 10, 0, 5500],
     ['vote', 10, 0, 9000],
   ];
+  // PREVIEW_SEGMENTS='[["podium",10,0,7000]]' mengganti daftar segmen bawaan.
+  if (process.env.PREVIEW_SEGMENTS) SEGMENTS.splice(0, SEGMENTS.length, ...JSON.parse(process.env.PREVIEW_SEGMENTS));
   const tmpVideo = `${out}.video.mp4`;
   const ff = spawn('ffmpeg', ['-v', 'error', '-y', '-f', 'image2pipe', '-c:v', 'mjpeg', '-r', String(FPS), '-i', '-',
     '-c:v', 'libx264', '-preset', 'medium', '-crf', '20', '-pix_fmt', 'yuv420p', tmpVideo], { stdio: ['pipe', 'inherit', 'inherit'] });
