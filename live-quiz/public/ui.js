@@ -117,7 +117,7 @@ function rules(v) {
     return li;
   });
   const next = el('div', 'ui next mono');
-  next.style.top = '1290px';
+  next.style.top = '1100px';
   const nb = el('b');
   next.append(el('span', '', 'SOAL PERTAMA DALAM'), nb);
   root.append(head(v, null, { right: 'ronde' }), title, sub, list, next);
@@ -188,7 +188,7 @@ function answer(v, ctx) {
     shapeBox = el('div', 'ui mapbox shapeq');
     const cv = el('canvas');
     cv.width = 1904;
-    cv.height = 820;
+    cv.height = 700;
     shapeBox.append(cv, el('div', 'tag mono', q.source.toUpperCase()));
     shapeMap = new ShapeView(cv, ctx.geoData, q.shape);
   }
@@ -226,8 +226,8 @@ function answer(v, ctx) {
     node: root,
     cues: [],
     mount() {
-      fit(question, shapeBox ? { max: 54, min: 36, height: 90 } : { max: 84, min: 44, height: 340 });
-      for (const r of rows) fit(r.querySelector('.t'), { max: shapeBox ? 36 : two ? 64 : 50, min: 24, oneLine: true });
+      fit(question, shapeBox ? { max: 50, min: 34, height: 80 } : { max: 80, min: 42, height: 290 });
+      for (const r of rows) fit(r.querySelector('.t'), { max: shapeBox ? 34 : two ? 60 : 48, min: 24, oneLine: true });
       shapeMap?.draw(null, 0, 0);
     },
     update(v, sound) {
@@ -284,7 +284,7 @@ function reveal(v, ctx) {
     mapBox = el('div', 'ui mapbox');
     const cv = el('canvas');
     cv.width = 1904;
-    cv.height = 576;
+    cv.height = 540;
     const [lon, lat] = ctx.geoData[q.shape.kind === 'provinsi' ? 'provinces' : 'countries'][q.shape.name].center;
     mapBox.append(cv, el('div', 'coord mono', formatCoord(lat, lon > 180 ? lon - 360 : lon)), el('div', 'tag mono', q.source.toUpperCase()));
     shapeMap = new ShapeView(cv, ctx.geoData, q.shape);
@@ -292,7 +292,7 @@ function reveal(v, ctx) {
     mapBox = el('div', 'ui mapbox');
     const cv = el('canvas');
     cv.width = 1904;
-    cv.height = 576;
+    cv.height = 540;
     mapBox.append(cv, el('div', 'coord mono', formatCoord(q.map.lat, q.map.lon)), el('div', 'tag mono', 'PETA · NATURAL EARTH'));
     map = new MapView(cv, ctx.mapData, q.map.region);
   }
@@ -332,9 +332,9 @@ function reveal(v, ctx) {
     node: root,
     cues: [{ at: 0, name: 'timeUp' }, { at: 450, name: 'reveal' }],
     mount() {
-      fit(qs, { max: 36, min: 26, height: 90 });
-      fit(fakta.querySelector('p'), mapBox ? { max: 40, min: 30, height: 140 } : { max: 54, min: 36, height: 330 });
-      for (const r of rows) fit(r.t, { max: two ? 48 : 36, min: 24, oneLine: true });
+      fit(qs, { max: 34, min: 24, height: 80 });
+      fit(fakta.querySelector('p'), mapBox ? { max: 38, min: 28, height: 130 } : { max: 54, min: 36, height: 400 });
+      for (const r of rows) fit(r.t, { max: two ? 48 : 34, min: 24, oneLine: true });
     },
     update(v) {
       const t = v.elapsed;
@@ -397,7 +397,7 @@ function winners(v) {
     wt.append(el('b', '', 'JUGA BENAR'));
     wallTitle.append(wt, el('span', '', `${rest} ORANG`));
     const wall = el('div', 'ui wall');
-    const max = 14;
+    const max = 7; // satu baris: di bawahnya sudah area komentar
     const shown = v.wall.slice(0, rest > max ? max - 1 : max);
     cells = shown.map((p) => {
       const cell = el('div', 'cell');
