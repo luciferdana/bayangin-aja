@@ -1,5 +1,8 @@
-// Latar Bumi real-time: satu bola bertekstur NASA, garis senja tetap menghadap kamera
-// sehingga lampu kota selalu terlihat. Ringan: satu mesh, tiga tekstur.
+// Latar Bumi real-time: satu bola bertekstur NASA. Ringan: satu mesh, tiga tekstur.
+// Mode cahaya:
+//   nyata  posisi matahari sesuai jam sekarang (siang di sisi yang memang sedang siang)
+//   siang  selalu terang dari kiri atas
+//   senja  garis senja selalu membelah layar, lampu kota selalu terlihat
 import * as THREE from './vendor/three.module.min.js';
 
 const DEG = Math.PI / 180;
@@ -55,9 +58,31 @@ void main() {
 
 const wrap = (a) => ((((a + 180) % 360) + 360) % 360) - 180;
 
+// Arah titik (lintang, bujur) pada bola sebelum diputar, sesuai pemetaan UV SphereGeometry.
+const surface = (lat, lon) => new THREE.Vector3(
+  Math.cos(lat * DEG) * Math.cos(lon * DEG), Math.sin(lat * DEG), -Math.cos(lat * DEG) * Math.sin(lon * DEG));
+
+// Titik di Bumi yang tepat di bawah matahari (tanpa koreksi equation of time, selisih < 4 derajat).
+export function subsolar(date) {
+  const start = Date.UTC(date.getUTCFullYear(), 0, 0);
+  const day = (date.getTime() - start) / 86400000;
+  const lat = -23.44 * Math.cos(((2 * Math.PI) / 365) * (day + 10));
+  const hours = date.getUTCHours() + date.getUTCMinutes() / 60 + date.getUTCSeconds() / 3600;
+  return { lat, lon: wrap(-15 * (hours - 12)) };
+}
+
+// Kamera di +Z, timur = +X.
+const CAMERA_SUN = {
+  senja: new THREE.Vector3(Math.sin(98 * DEG) * Math.cos(8 * DEG), Math.sin(8 * DEG), Math.cos(98 * DEG) * Math.cos(8 * DEG)),
+  siang: new THREE.Vector3(-0.35, 0.5, 0.8).normalize(),
+};
+
 export class Globe {
-  constructor(canvas) {
+  // date: fungsi waktu nyata (ms) -> Date, dipakai mode 'nyata'.
+  constructor(canvas, { mode = 'nyata', date = () => new Date() } = {}) {
     this.canvas = canvas;
+    this.mode = ['nyata', 'siang', 'senja'].includes(mode) ? mode : 'nyata';
+    this.date = date;
     this.view = { ...HOME };
     this.ready = false;
   }
@@ -83,9 +108,8 @@ export class Globe {
     const [day, night, clouds] = await Promise.all([
       load('earth_day_4096.jpg'), load('earth_night_4096.jpg'), load('earth_bump_roughness_clouds_4096.jpg', false)]);
 
-    // Matahari tetap di kanan kamera: garis senja selalu membelah layar.
-    // Kamera di +Z, timur = +X: matahari 98 derajat ke timur dari titik tengah layar.
-    const sun = new THREE.Vector3(Math.sin(98 * DEG) * Math.cos(8 * DEG), Math.sin(8 * DEG), Math.cos(98 * DEG) * Math.cos(8 * DEG));
+    const sun = (CAMERA_SUN[this.mode] ?? CAMERA_SUN.senja).clone();
+    this.sun = sun;
     this.uniforms = { day: { value: day }, night: { value: night }, clouds: { value: clouds }, sun: { value: sun }, cloudShift: { value: 0 } };
     this.earth = new THREE.Mesh(new THREE.SphereGeometry(1, 192, 192),
       new THREE.ShaderMaterial({ uniforms: this.uniforms, vertexShader: earthVert, fragmentShader: earthFrag }));
@@ -122,6 +146,10 @@ export class Globe {
     }
     // Titik (lat, lon) menghadap kamera di +Z.
     this.earth.rotation.set(this.view.lat * DEG, -Math.PI / 2 - this.view.lon * DEG, 0);
+    if (this.mode === 'nyata') {
+      const ss = subsolar(this.date(t));
+      this.sun.copy(surface(ss.lat, ss.lon).applyEuler(this.earth.rotation));
+    }
     this.uniforms.cloudShift.value = (t / 1000) * 0.0009;
     this.renderer.render(this.scene, this.camera);
   }

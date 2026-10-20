@@ -6,6 +6,8 @@
 //   &speed=4        percepat waktu (uji)             &seed=7   hasil acak tetap
 //   &q=komodo       mulai dari soal tertentu         &like=100 target like bantuan
 //   &mute=1         tanpa suara                       &debug=1  tampilkan status koneksi
+//   &bumi=nyata     cahaya Bumi: nyata (sesuai jam), siang, senja
+//   &jam=2026-10-20T05:00:00Z   waktu awal untuk mode nyata (default: sekarang)
 //   &capture=1      waktu dikendalikan skrip render (window.__step)
 import { QuizEngine, mulberry32, DEFAULTS } from './engine.js';
 import { QUESTIONS } from './questions.js';
@@ -47,7 +49,11 @@ const engine = new QuizEngine(QUESTIONS, {
 });
 const sim = params.has('sim') ? new Sim(engine, seed ? mulberry32(Number(seed) + 1) : Math.random, { viewers: num('viewers', 60) }) : null;
 const sound = new Sound({ muted: params.has('mute') || capture });
-const globe = new Globe(document.getElementById('globe'));
+const startDate = params.has('jam') ? new Date(params.get('jam')) : new Date();
+const globe = new Globe(document.getElementById('globe'), {
+  mode: params.get('bumi') || 'nyata',
+  date: (ms) => new Date(startDate.getTime() + ms / speed),
+});
 const ctx = { mapData: null };
 
 if (params.has('debug')) connEl.textContent = sim ? 'simulasi' : 'menunggu server';

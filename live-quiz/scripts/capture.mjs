@@ -27,7 +27,10 @@ const browser = await chromium.launch({ args: ['--use-angle=swiftshader', '--ena
 const page = await browser.newPage({ viewport: { width: 1080, height: 1920 } });
 page.on('pageerror', (e) => console.error('pageerror:', e.message));
 page.on('console', (m) => m.type() === 'error' && console.error('console:', m.text()));
-await page.goto(`http://localhost:${srv.port}/?sim=1&capture=1&seed=7&viewers=80&q=komodo`);
+// Parameter tambahan lewat env, misalnya QUIZ_PARAMS='bumi=siang'.
+const extra = process.env.QUIZ_PARAMS ? `&${process.env.QUIZ_PARAMS}` : '';
+const jam = /(^|&)jam=/.test(extra) ? '' : '&jam=2026-10-20T12:00:00Z';
+await page.goto(`http://localhost:${srv.port}/?sim=1&capture=1&seed=7&viewers=80&q=komodo${jam}${extra}`);
 await page.waitForFunction(() => document.title === 'ready', null, { timeout: 120000 });
 
 // Jalankan ffmpeg; kembalikan stderr kalau diminta (untuk hasil ukur loudnorm).
