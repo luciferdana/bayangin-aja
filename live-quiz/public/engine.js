@@ -1,17 +1,32 @@
 // Mesin kuis: murni logika, tanpa DOM, supaya bisa dites di Node.
 // Waktu selalu disuntikkan lewat argumen `now` (milidetik).
+//
+// Alur satu ronde:
+//   rules -> [intro -> answer -> reveal -> winners] x10, dengan board setelah soal 5
+//   -> podium -> standings -> ronde baru
 
 export const DEFAULTS = {
+  rulesMs: 9000,
   introMs: 3500,
   answerMs: 20000,
-  revealMs: 9000,
+  revealMs: 7500,
+  winnersMs: 7000,
   boardMs: 8000,
+  podiumMs: 9000,
+  standingsMs: 9000,
   roundSize: 10,
   boardEvery: 5,
   hintLikes: 100,
   mix: { mudah: 4, sedang: 4, sulit: 2 },
+  // Skor: poin dasar per tingkat, bonus cepat sampai speedBonus x dasar,
+  // bonus beruntun mulai jawaban benar ke-streakFrom berturut-turut.
+  points: { mudah: 100, sedang: 150, sulit: 200 },
+  speedBonus: 0.5,
+  streakFrom: 3,
+  streakBonus: 50,
   toastMs: 4500,
   maxToasts: 3,
+  wallSize: 40,
 };
 
 export const LETTERS = ['A', 'B', 'C', 'D'];
@@ -47,19 +62,29 @@ function shuffle(arr, rng) {
   return a;
 }
 
+const cleanAvatar = (url) => (typeof url === 'string' && /^https?:\/\//.test(url) ? url.slice(0, 600) : null);
+
 export class QuizEngine {
   constructor(bank, { config = {}, rng = Math.random, startWith = null } = {}) {
     this.bank = bank;
-    this.cfg = { ...DEFAULTS, ...config, mix: { ...DEFAULTS.mix, ...(config.mix || {}) } };
+    this.cfg = {
+      ...DEFAULTS,
+      ...config,
+      mix: { ...DEFAULTS.mix, ...(config.mix || {}) },
+      points: { ...DEFAULTS.points, ...(config.points || {}) },
+    };
     this.rng = rng;
     this.pools = {};
-    this.used = new Set();
     this.startWith = startWith;
     this.round = 0;
-    this.players = new Map(); // uniqueId -> { name, score, correct }
+    this.players = new Map(); // uniqueId -> { name, avatar, score, correct, streak }
     this.toasts = [];
     this.totalLikes = 0;
     this.phase = 'idle';
+    this.qIndex = -1;
+    this.questions = [];
+    this.current = null;
+    this.roundScores = new Map();
   }
 
   start(now) {
@@ -131,7 +156,8 @@ export class QuizEngine {
     this.questions = this.buildRound();
     this.qIndex = -1;
     this.roundScores = new Map();
-    this.nextQuestion(now);
+    this.current = null;
+    this.setPhase('rules', now, this.cfg.rulesMs);
   }
 
   nextQuestion(now) {
@@ -141,9 +167,10 @@ export class QuizEngine {
       q,
       answers: new Map(), // uniqueId -> { choice, at }
       counts: new Array(q.options.length).fill(0),
+      recent: [], // penjawab terakhir, untuk tumpukan avatar
       likes: 0,
       removed: new Set(),
-      fastest: null,
+      results: [], // penjawab benar, urut tercepat
     };
     this.setPhase('intro', now, this.cfg.introMs);
   }
@@ -165,55 +192,94 @@ export class QuizEngine {
     this.toasts = this.toasts.filter((t) => now - t.at < this.cfg.toastMs);
     if (this.phase === 'idle' || now < this.phaseEnd) return;
     const roundDone = this.qIndex >= this.questions.length - 1;
+    const c = this.cfg;
     switch (this.phase) {
+      case 'rules':
+        this.nextQuestion(now);
+        break;
       case 'intro':
-        this.setPhase('answer', now, this.cfg.answerMs);
+        this.setPhase('answer', now, c.answerMs);
         break;
       case 'answer':
-        this.score(now);
-        this.setPhase('reveal', now, this.cfg.revealMs);
+        this.score();
+        this.setPhase('reveal', now, c.revealMs);
         break;
       case 'reveal':
-        if (roundDone || (this.qIndex + 1) % this.cfg.boardEvery === 0) {
-          this.setPhase('board', now, this.cfg.boardMs);
-        } else {
-          this.nextQuestion(now);
-        }
+        if (this.current.results.length) this.setPhase('winners', now, c.winnersMs);
+        else this.afterQuestion(now, roundDone);
+        break;
+      case 'winners':
+        this.afterQuestion(now, roundDone);
         break;
       case 'board':
-        if (roundDone) this.newRound(now);
-        else this.nextQuestion(now);
+        this.nextQuestion(now);
+        break;
+      case 'podium':
+        this.setPhase('standings', now, c.standingsMs);
+        break;
+      case 'standings':
+        this.newRound(now);
         break;
     }
+  }
+
+  afterQuestion(now, roundDone) {
+    if (roundDone) {
+      if (this.roundScores.size) this.setPhase('podium', now, this.cfg.podiumMs);
+      else this.setPhase('standings', now, this.cfg.standingsMs);
+    } else if ((this.qIndex + 1) % this.cfg.boardEvery === 0) {
+      this.setPhase('board', now, this.cfg.boardMs);
+    } else {
+      this.nextQuestion(now);
+    }
+  }
+
+  // Poin untuk satu jawaban benar. `streak` = jumlah benar beruntun termasuk soal ini.
+  pointsFor(diff, msTaken, streak) {
+    const c = this.cfg;
+    const base = c.points[diff] ?? c.points.sedang;
+    const left = Math.max(0, Math.min(1, 1 - msTaken / c.answerMs));
+    const bonus = Math.round(base * c.speedBonus * left);
+    const streakPts = streak >= c.streakFrom ? c.streakBonus : 0;
+    return { base, bonus, streakPts, total: base + bonus + streakPts };
   }
 
   score() {
     const c = this.current;
-    const ans = c.q.answer;
-    for (const [id, a] of c.answers) {
-      if (a.choice !== ans) continue;
-      const left = Math.max(0, 1 - (a.at - this.phaseStart) / this.cfg.answerMs);
-      const pts = 100 + Math.round(50 * left);
-      const p = this.players.get(id);
-      p.score += pts;
+    const results = [];
+    for (const [id, p] of this.players) {
+      const a = c.answers.get(id);
+      if (!a || a.choice !== c.q.answer) {
+        p.streak = 0; // salah atau tidak menjawab: beruntun putus
+        continue;
+      }
+      p.streak += 1;
+      const ms = a.at - this.phaseStart;
+      const pts = this.pointsFor(c.q.diff, ms, p.streak);
+      p.score += pts.total;
       p.correct += 1;
-      const r = this.roundScores.get(id) || { name: p.name, score: 0 };
+      const r = this.roundScores.get(id) || { name: p.name, avatar: p.avatar, score: 0, correct: 0 };
       r.name = p.name;
-      r.score += pts;
+      r.avatar = p.avatar;
+      r.score += pts.total;
+      r.correct += 1;
       this.roundScores.set(id, r);
-      if (!c.fastest || a.at < c.fastest.at) c.fastest = { name: p.name, at: a.at };
+      results.push({ user: id, name: p.name, avatar: p.avatar, ms, points: pts.total, streak: p.streak });
     }
+    results.sort((x, y) => x.ms - y.ms);
+    c.results = results;
   }
 
   // Event dari TikTok atau simulasi:
-  // { type: 'comment'|'like'|'gift'|'follow'|'share', user, name, text, count, gift }
+  // { type: 'comment'|'like'|'gift'|'follow'|'share', user, name, avatar, text, count, gift }
   handle(evt, now) {
     if (!evt || typeof evt !== 'object') return;
     const user = String(evt.user || '').slice(0, 64);
     const name = String(evt.name || evt.user || 'seseorang').slice(0, 32);
+    const avatar = cleanAvatar(evt.avatar);
     switch (evt.type) {
       case 'comment':
-        if (user) this.answer(user, name, evt.text, now);
+        if (user) this.answer(user, name, avatar, evt.text, now);
         break;
       case 'like': {
         const n = Math.max(1, Math.min(1000, Number(evt.count) || 1));
@@ -223,24 +289,26 @@ export class QuizEngine {
           const before = c.likes;
           c.likes += n;
           if (before < this.cfg.hintLikes && c.likes >= this.cfg.hintLikes && this.applyHint()) {
-            this.toast('hint', 'Like tembus target! Dua jawaban salah dihapus', now);
+            this.toast('hint', '', 'Like tembus target. Dua jawaban salah dihapus', now);
           }
         }
         break;
       }
-      case 'gift':
-        this.toast('gift', `${name} kirim ${evt.gift || 'hadiah'}${evt.count > 1 ? ` x${evt.count}` : ''}. Makasih!`, now);
+      case 'gift': {
+        const count = Math.max(1, Number(evt.count) || 1);
+        this.toast('gift', name, `kirim ${String(evt.gift || 'hadiah').slice(0, 24)}${count > 1 ? ` x${count}` : ''}`, now);
         break;
+      }
       case 'follow':
-        this.toast('follow', `Makasih udah follow, ${name}!`, now);
+        this.toast('follow', name, 'baru follow. Makasih!', now);
         break;
       case 'share':
-        this.toast('share', `${name} membagikan live ini`, now);
+        this.toast('share', name, 'membagikan live ini', now);
         break;
     }
   }
 
-  answer(user, name, text, now) {
+  answer(user, name, avatar, text, now) {
     if (this.phase !== 'answer') return;
     const c = this.current;
     if (c.answers.has(user)) return; // jawaban pertama yang dihitung
@@ -249,8 +317,14 @@ export class QuizEngine {
     c.answers.set(user, { choice, at: now });
     c.counts[choice] += 1;
     const p = this.players.get(user);
-    if (p) p.name = name;
-    else this.players.set(user, { name, score: 0, correct: 0 });
+    if (p) {
+      p.name = name;
+      if (avatar) p.avatar = avatar;
+    } else {
+      this.players.set(user, { name, avatar, score: 0, correct: 0, streak: 0 });
+    }
+    c.recent.push({ name, avatar: avatar || p?.avatar || null });
+    if (c.recent.length > 6) c.recent.shift();
   }
 
   // Bantuan 50:50, hanya untuk soal 4 pilihan.
@@ -263,20 +337,19 @@ export class QuizEngine {
     return true;
   }
 
-  toast(kind, text, now) {
-    this.toasts.push({ kind, text, at: now });
+  toast(kind, name, text, now) {
+    this.toasts.push({ kind, name, text, at: now });
     if (this.toasts.length > this.cfg.maxToasts) this.toasts.shift();
   }
 
-  top(map, n = 5) {
-    return [...map.values()].sort((a, b) => b.score - a.score).slice(0, n)
-      .map(({ name, score }) => ({ name, score }));
+  top(entries, n) {
+    return [...entries].filter((e) => e.score > 0).sort((a, b) => b.score - a.score).slice(0, n)
+      .map(({ name, avatar, score, correct }) => ({ name, avatar, score, correct }));
   }
 
   view(now) {
     const c = this.current;
-    const total = c ? c.answers.size : 0;
-    const roundDone = this.qIndex >= (this.questions?.length ?? 0) - 1;
+    const cfg = this.cfg;
     return {
       phase: this.phase,
       elapsed: now - this.phaseStart,
@@ -284,18 +357,29 @@ export class QuizEngine {
       duration: this.phaseEnd - this.phaseStart,
       round: this.round,
       qNumber: this.qIndex + 1,
-      qTotal: this.questions?.length ?? 0,
+      qTotal: this.questions.length,
       question: c?.q ?? null,
       counts: c ? c.counts.slice() : [],
-      totalAnswers: total,
-      correctCount: c ? c.counts[c.q.answer] : 0,
+      totalAnswers: c ? c.answers.size : 0,
+      recent: c ? c.recent.slice() : [],
+      correctCount: c ? c.results.length : 0,
+      winners: c ? c.results.slice(0, 3) : [],
+      wall: c ? c.results.slice(3, 3 + cfg.wallSize) : [],
       removed: c ? [...c.removed] : [],
       likes: c ? c.likes : 0,
-      hintLikes: this.cfg.hintLikes,
-      fastest: c?.fastest?.name ?? null,
-      roundBoard: this.top(this.roundScores || new Map()),
-      finalBoard: this.phase === 'board' && roundDone,
-      toasts: this.toasts.map((t) => ({ kind: t.kind, text: t.text, age: now - t.at })),
+      hintLikes: cfg.hintLikes,
+      roundBoard: this.top(this.roundScores.values(), 5),
+      standings: this.top(this.players.values(), 10),
+      playerCount: this.players.size,
+      rules: {
+        points: { ...cfg.points },
+        speedBonus: cfg.speedBonus,
+        streakFrom: cfg.streakFrom,
+        streakBonus: cfg.streakBonus,
+        answerSec: Math.round(cfg.answerMs / 1000),
+        hintLikes: cfg.hintLikes,
+      },
+      toasts: this.toasts.map((t) => ({ kind: t.kind, name: t.name, text: t.text, age: now - t.at })),
     };
   }
 }
