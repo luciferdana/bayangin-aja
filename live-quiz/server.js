@@ -68,7 +68,31 @@ function pickAvatar(u) {
   return urls.find((x) => x.includes('100x100') && !x.includes('.heic')) ?? urls.find((x) => !x.includes('.heic')) ?? null;
 }
 
-function who(data) {
+// Jumlah like dalam satu event: v3 `count`, versi lama `likeCount`.
+export function likeEvent(d) {
+  return { type: 'like', ...who(d), count: Number(d?.count ?? d?.likeCount) || 1 };
+}
+
+// Teks komentar: protokol v3 memakai `content`, versi lama `comment`.
+export function chatEvent(d) {
+  return { type: 'comment', ...who(d), text: String(d?.content || d?.comment || '') };
+}
+
+// Gift: protokol v3 menaruh datanya di `gift` (name, diamondCount, type, image, icon),
+// versi lama di `giftDetails` (giftName, diamondCount, giftType, giftImage).
+// Gift beruntun (type 1) baru dihitung saat beruntunnya selesai; kembalikan null sebelum itu.
+export function giftEvent(d) {
+  const g = d?.gift ?? d?.giftDetails ?? {};
+  if (Number(g.type ?? g.giftType) === 1 && !d.repeatEnd) return null;
+  const count = Number(d.repeatCount) || 1;
+  // Nilai koin hanya untuk menentukan tingkat boost, tidak pernah ditampilkan.
+  const each = Number(g.diamondCount) || 1;
+  const img = [g.image, g.giftImage, g.icon].flatMap((i) => i?.urlList ?? i?.url ?? [])
+    .find((x) => typeof x === 'string' && /^https?:\/\//.test(x)) ?? d.giftPictureUrl ?? null;
+  return { type: 'gift', ...who(d), gift: g.name || g.giftName || 'hadiah', count, coins: each * count, giftImage: img };
+}
+
+export function who(data) {
   const u = data?.user ?? data ?? {};
   const user = String(u.uniqueId || u.displayId || u.userId || u.idStr || '');
   return { user, name: u.nickname || user || 'seseorang', avatar: pickAvatar(u) };
@@ -86,22 +110,15 @@ async function connectTikTok(username, broadcast, status, log) {
 
   // Setiap komentar dan gift dicatat di terminal, supaya kelihatan apa yang benar-benar masuk.
   conn.on(WebcastEvent.CHAT, (d) => {
-    const msg = { type: 'comment', ...who(d), text: String(d.comment ?? '') };
+    const msg = chatEvent(d);
     log(`[komentar] @${msg.user || '?'}: ${msg.text.slice(0, 80)}`);
     broadcast(msg);
   });
-  conn.on(WebcastEvent.LIKE, (d) => broadcast({ type: 'like', ...who(d), count: Number(d.likeCount) || 1 }));
+  conn.on(WebcastEvent.LIKE, (d) => broadcast(likeEvent(d)));
   conn.on(WebcastEvent.GIFT, (d) => {
-    // Gift beruntun (giftType 1) baru dihitung saat beruntunnya selesai.
-    if (d.giftDetails?.giftType === 1 && !d.repeatEnd) return;
-    const gift = d.giftDetails?.giftName || 'hadiah';
-    const count = Number(d.repeatCount) || 1;
-    // Nilai koin hanya untuk menentukan tingkat boost, tidak pernah ditampilkan.
-    const each = Number(d.giftDetails?.diamondCount) || 1;
-    const img = [d.giftDetails?.giftImage, d.giftDetails?.icon].flatMap((i) => i?.url ?? i?.urlList ?? [])
-      .find((x) => typeof x === 'string' && /^https?:\/\//.test(x)) ?? d.giftPictureUrl ?? null;
-    const msg = { type: 'gift', ...who(d), gift, count, coins: each * count, giftImage: img };
-    log(`[gift] @${msg.user || '?'}: ${gift} x${count}`);
+    const msg = giftEvent(d);
+    if (!msg) return;
+    log(`[gift] @${msg.user || '?'}: ${msg.gift} x${msg.count}`);
     broadcast(msg);
   });
   conn.on(WebcastEvent.FOLLOW, (d) => broadcast({ type: 'follow', ...who(d) }));
