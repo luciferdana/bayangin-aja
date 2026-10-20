@@ -7,9 +7,12 @@
     "start": "node server.js",
     "test": "node --test test/*.test.js",
     "map": "node scripts/build-map.mjs",
-    "snap": "node scripts/snap.mjs"
+    "music": "python3 scripts/make-music.py",
+    "stills": "node scripts/capture.mjs stills",
+    "preview": "node scripts/capture.mjs preview"
   },
   "dependencies": {
+    "three": "^0.170.0",
     "tiktok-live-connector": "^2.5.0",
     "ws": "^8.22.0"
   },
@@ -18,5 +21,8 @@
     "world-atlas": "^2.0.2"
   },
   "type": "module",
-  "private": true
+  "private": true,
+  "engines": {
+    "node": ">=20"
+  }
 }

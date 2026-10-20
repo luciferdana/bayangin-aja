@@ -1,10 +1,13 @@
-// Peta 2D datar (equirectangular dengan koreksi lintang) dari public/data/map.json.
+// Peta 2D line-art (garis pantai + grid) dari public/data/map.json, dengan penanda bidik.
 
 let dataPromise = null;
 export function loadMap() {
   dataPromise ??= fetch('data/map.json').then((r) => r.json()).catch(() => null);
   return dataPromise;
 }
+
+const SIGNAL = '#ff5b23';
+const INK = '#050608';
 
 export class MapView {
   constructor(canvas, data, regionName) {
@@ -13,21 +16,31 @@ export class MapView {
     if (!region) return;
     const [x0, y0, x1, y1] = region.bbox;
     const k = Math.cos((((y0 + y1) / 2) * Math.PI) / 180);
-    const w = canvas.width;
-    const h = canvas.height;
+    const { width: w, height: h } = canvas;
     const s = Math.min(w / ((x1 - x0) * k), h / (y1 - y0));
     const ox = (w - (x1 - x0) * k * s) / 2;
     const oy = (h - (y1 - y0) * s) / 2;
     this.project = (lon, lat) => [ox + (lon - x0) * k * s, oy + (y1 - lat) * s];
 
-    // Daratan digambar sekali ke kanvas cadangan, tiap frame tinggal disalin.
+    // Garis pantai dan grid digambar sekali ke kanvas cadangan.
     this.base = document.createElement('canvas');
     this.base.width = w;
     this.base.height = h;
     const g = this.base.getContext('2d');
-    g.fillStyle = getCss('--land');
-    g.strokeStyle = getCss('--land-edge');
-    g.lineWidth = 1.5;
+    const step = regionName === 'world' ? 30 : 5;
+    g.strokeStyle = 'rgba(242,239,232,0.08)';
+    g.lineWidth = 2;
+    for (let lon = Math.ceil(x0 / step) * step; lon <= x1; lon += step) {
+      const [x] = this.project(lon, 0);
+      g.beginPath(); g.moveTo(x, 0); g.lineTo(x, h); g.stroke();
+    }
+    for (let lat = Math.ceil(y0 / step) * step; lat <= y1; lat += step) {
+      const [, y] = this.project(x0, lat);
+      g.beginPath(); g.moveTo(0, y); g.lineTo(w, y); g.stroke();
+    }
+    g.strokeStyle = 'rgba(242,239,232,0.62)';
+    g.fillStyle = 'rgba(242,239,232,0.05)';
+    g.lineWidth = regionName === 'world' ? 1.6 : 2.4;
     g.lineJoin = 'round';
     for (const ring of region.rings) {
       g.beginPath();
@@ -42,52 +55,51 @@ export class MapView {
     }
   }
 
-  draw(marker, t) {
+  // p: 0..1 kemunculan penanda; t: waktu (ms) untuk denyut.
+  draw(marker, p, t) {
     if (!this.base) return;
     const c = this.canvas.getContext('2d');
     c.clearRect(0, 0, this.canvas.width, this.canvas.height);
     c.drawImage(this.base, 0, 0);
-    if (!marker) return;
-    const [x, y] = this.project(marker.lon, marker.lat);
-    const accent = getCss('--accent');
-    const pulse = (t / 1400) % 1;
-    c.strokeStyle = accent;
-    c.globalAlpha = 1 - pulse;
+    if (!marker || p <= 0) return;
+    const [mx, my] = this.project(marker.lon, marker.lat);
+    const r = 30 + (1 - p) * 120;
+    c.globalAlpha = p;
+    c.strokeStyle = SIGNAL;
     c.lineWidth = 4;
+    c.beginPath(); c.arc(mx, my, r, 0, Math.PI * 2); c.stroke();
+    const pulse = (t / 1600) % 1;
+    c.globalAlpha = p * (1 - pulse) * 0.5;
+    c.beginPath(); c.arc(mx, my, 34 + pulse * 60, 0, Math.PI * 2); c.stroke();
+    c.globalAlpha = p;
+    for (const [dx, dy] of [[1, 0], [-1, 0], [0, 1], [0, -1]]) {
+      c.beginPath(); c.moveTo(mx + dx * 40, my + dy * 40); c.lineTo(mx + dx * 84, my + dy * 84); c.stroke();
+    }
+    c.fillStyle = SIGNAL;
+    c.beginPath(); c.arc(mx, my, 8, 0, Math.PI * 2); c.fill();
+
+    c.font = '700 34px "JetBrains Mono", monospace';
+    c.textBaseline = 'middle';
+    const label = marker.label.toUpperCase();
+    const w = c.measureText(label).width + 36;
+    const right = mx + 100 + w < this.canvas.width - 10;
+    const lx = right ? mx + 100 : mx - 100 - w;
+    const ly = Math.max(10, my - 120);
+    c.fillRect(lx, ly, w, 58);
+    c.fillStyle = INK;
+    c.fillText(label, lx + 18, ly + 30);
+    c.strokeStyle = SIGNAL;
+    c.lineWidth = 3;
     c.beginPath();
-    c.arc(x, y, 14 + pulse * 46, 0, Math.PI * 2);
+    c.moveTo(mx + (right ? 44 : -44), my - 44);
+    c.lineTo(right ? lx : lx + w, ly + 29);
     c.stroke();
     c.globalAlpha = 1;
-    c.fillStyle = accent;
-    c.beginPath();
-    c.arc(x, y, 12, 0, Math.PI * 2);
-    c.fill();
-
-    c.font = '700 30px "Plus Jakarta Sans", system-ui, sans-serif';
-    const tw = c.measureText(marker.label).width;
-    const pad = 14;
-    let lx = x - tw / 2 - pad;
-    lx = Math.max(8, Math.min(this.canvas.width - tw - pad * 2 - 8, lx));
-    const ly = y - 34 - 44 < 8 ? y + 30 : y - 34 - 44;
-    c.fillStyle = 'rgba(10, 10, 12, 0.85)';
-    roundRect(c, lx, ly, tw + pad * 2, 44, 10);
-    c.fill();
-    c.fillStyle = '#f4f1ea';
-    c.textBaseline = 'middle';
-    c.fillText(marker.label, lx + pad, ly + 23);
   }
 }
 
-function roundRect(c, x, y, w, h, r) {
-  c.beginPath();
-  c.moveTo(x + r, y);
-  c.arcTo(x + w, y, x + w, y + h, r);
-  c.arcTo(x + w, y + h, x, y + h, r);
-  c.arcTo(x, y + h, x, y, r);
-  c.arcTo(x, y, x + w, y, r);
-  c.closePath();
-}
-
-function getCss(name) {
-  return getComputedStyle(document.documentElement).getPropertyValue(name).trim();
+// 8°33' LS · 119°29' BT
+export function formatCoord(lat, lon) {
+  const f = (v) => `${Math.floor(Math.abs(v))}°${String(Math.round((Math.abs(v) % 1) * 60)).padStart(2, '0')}'`;
+  return `${f(lat)} ${lat < 0 ? 'LS' : 'LU'} · ${f(lon)} ${lon < 0 ? 'BB' : 'BT'}`;
 }

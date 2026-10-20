@@ -6,34 +6,18 @@
 <title>Kuis Bayangin Aja</title>
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-<link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@500;700;800&display=swap" rel="stylesheet">
+<link href="https://fonts.googleapis.com/css2?family=Archivo:wdth,wght@62..125,100..900&family=JetBrains+Mono:wght@400;600;700&display=swap" rel="stylesheet">
 <link rel="stylesheet" href="style.css">
 </head>
 <body>
 <div id="stage">
-  <div class="bg"></div>
-
-  <header class="top">
-    <div class="brand">BAYANGIN AJA <span>KUIS LIVE</span></div>
-    <div class="meta" id="meta"></div>
-  </header>
-
-  <div class="row">
-    <div class="chips"><span class="chip" id="cat"></span><span class="chip diff" id="diff"></span></div>
-    <div class="secs" id="secs"></div>
-  </div>
-  <div class="timer"><div class="fill" id="timerFill"></div></div>
-
-  <section class="card" id="card"></section>
-  <ol class="options" id="options"></ol>
-
-  <div class="footer">
-    <div class="instr" id="instr"></div>
-    <div class="likebar" id="likebar"><div class="fill"></div><span></span></div>
-  </div>
-
-  <div class="toasts" id="toasts"></div>
-  <div class="conn" id="conn"></div>
+  <canvas id="globe" width="1080" height="1920"></canvas>
+  <div class="scrim light" id="scrimLight"></div>
+  <div class="scrim heavy" id="scrimHeavy"></div>
+  <div class="grain"></div>
+  <div id="scene"></div>
+  <div id="toasts"></div>
+  <div id="conn" class="mono"></div>
 </div>
 <script type="module" src="app.js"></script>
 </body>

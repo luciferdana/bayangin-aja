@@ -129,7 +129,8 @@ function shuffle(arr, rng) {
   return a;
 }
 
-const cleanAvatar = (url) => (typeof url === 'string' && /^https?:\/\//.test(url) ? url.slice(0, 600) : null);
+// Hanya dipakai sebagai <img src>: URL http(s) dari TikTok, atau data:image dari simulasi.
+const cleanAvatar = (url) => (typeof url === 'string' && /^(https?:\/\/|data:image\/)/.test(url) && url.length < 8000 ? url : null);
 
 export class QuizEngine {
   constructor(bank, { config = {}, rng = Math.random, startWith = null } = {}) {

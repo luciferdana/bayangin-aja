@@ -1,4 +1,5 @@
-// Penonton palsu untuk menguji kuis tanpa live: komentar jawaban, obrolan, like, gift, follow.
+// Penonton palsu untuk menguji kuis tanpa live: tebakan ketik (dengan typo), obrolan,
+// like, gift, follow. Sebagian punya foto profil buatan, sisanya tampil sebagai inisial.
 
 const FIRST = ['budi', 'rina', 'dodi', 'sari', 'agus', 'wulan', 'yoga', 'putri', 'bayu', 'nisa',
   'rizky', 'dewi', 'fajar', 'intan', 'galih', 'ayu', 'eko', 'lala', 'hendra', 'mega', 'tono', 'citra'];
@@ -6,13 +7,42 @@ const CHAT = ['halo kak', 'wkwk', 'susah bgt', 'gampang ini', 'ikut ya', 'mantap
 const GIFTS = ['Mawar', 'Donat', 'Jari Hati', 'Topi Koboi'];
 const SKILL = { mudah: 0.85, sedang: 0.6, sulit: 0.35 };
 
+// Foto profil buatan: gradasi kalem + siluet, sebagai data URI SVG.
+function fakeAvatar(rng) {
+  const h1 = Math.floor(rng() * 360);
+  const h2 = (h1 + 40 + Math.floor(rng() * 80)) % 360;
+  const skin = ['#e0b48f', '#c99470', '#a8734f', '#8a5a3b', '#f0c9a6'][Math.floor(rng() * 5)];
+  const hair = ['#1b1512', '#2e211a', '#4a3527', '#120f0e'][Math.floor(rng() * 4)];
+  const shirt = `hsl(${Math.floor(rng() * 360)},35%,${35 + Math.floor(rng() * 25)}%)`;
+  const svg = `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 100 100">
+<defs><linearGradient id="g" x1="0" y1="0" x2="1" y2="1"><stop offset="0" stop-color="hsl(${h1},30%,42%)"/><stop offset="1" stop-color="hsl(${h2},35%,22%)"/></linearGradient></defs>
+<rect width="100" height="100" fill="url(#g)"/>
+<ellipse cx="50" cy="104" rx="38" ry="30" fill="${shirt}"/>
+<rect x="43" y="58" width="14" height="16" fill="${skin}"/>
+<ellipse cx="50" cy="44" rx="18" ry="21" fill="${skin}"/>
+<path d="M31 42 Q32 20 50 20 Q69 20 69 42 Q66 30 50 29 Q35 30 31 42Z" fill="${hair}"/>
+</svg>`;
+  return `data:image/svg+xml;base64,${btoa(svg)}`;
+}
+
+// Variasi ketikan: huruf kecil, kata pengisi, typo satu huruf.
+function typed(text, rng) {
+  let s = rng() < 0.6 ? text.toLowerCase() : text;
+  if (rng() < 0.15 && s.length > 5 && !/\d/.test(s)) {
+    const i = 1 + Math.floor(rng() * (s.length - 2));
+    s = s.slice(0, i) + s[i + 1] + s[i] + s.slice(i + 2);
+  }
+  if (rng() < 0.15) s = `jawabannya ${s}`;
+  return s;
+}
+
 export class Sim {
-  constructor(engine, rng, { viewers = 40 } = {}) {
+  constructor(engine, rng, { viewers = 60 } = {}) {
     this.engine = engine;
     this.rng = rng;
     this.viewers = Array.from({ length: viewers }, (_, i) => {
-      const name = FIRST[i % FIRST.length] + (i >= FIRST.length ? i : '');
-      return { user: `${name}_${100 + i}`, name, skill: 0.5 + rng() * 0.5 };
+      const name = FIRST[i % FIRST.length] + (i >= FIRST.length ? `_${i}` : '');
+      return { user: `${name}_${100 + i}`, name, skill: 0.5 + rng() * 0.5, avatar: rng() < 0.75 ? fakeAvatar(rng) : null };
     });
     this.queue = [];
     this.lastKey = '';
@@ -32,7 +62,7 @@ export class Sim {
     this.last = now;
     const r = this.rng;
     const per = (ratePerSec) => r() < (ratePerSec * dt) / 1000;
-    if (per(0.6)) this.say(CHAT[Math.floor(r() * CHAT.length)], now);
+    if (per(0.6)) e.handle({ type: 'comment', ...this.pick(), text: CHAT[Math.floor(r() * CHAT.length)] }, now);
     if (per(1.5)) e.handle({ type: 'like', ...this.pick(), count: 3 + Math.floor(r() * 15) }, now);
     if (per(0.05)) e.handle({ type: 'gift', ...this.pick(), gift: GIFTS[Math.floor(r() * GIFTS.length)], count: 1 + Math.floor(r() * 3) }, now);
     if (per(0.04)) e.handle({ type: 'follow', ...this.pick() }, now);
@@ -40,11 +70,7 @@ export class Sim {
 
   pick() {
     const v = this.viewers[Math.floor(this.rng() * this.viewers.length)];
-    return { user: v.user, name: v.name };
-  }
-
-  say(text, now) {
-    this.engine.handle({ type: 'comment', ...this.pick(), text }, now);
+    return { user: v.user, name: v.name, avatar: v.avatar };
   }
 
   planAnswers(now) {
@@ -53,17 +79,16 @@ export class Sim {
     const span = e.cfg.answerMs;
     const r = this.rng;
     for (const v of this.viewers) {
-      if (r() < 0.25) continue; // sebagian penonton tidak ikut menjawab
-      const right = r() < v.skill * SKILL[q.diff];
-      let choice = q.answer;
-      if (!right) {
-        const wrong = q.options.map((_, i) => i).filter((i) => i !== q.answer);
-        choice = wrong[Math.floor(r() * wrong.length)];
+      if (r() < 0.2) continue; // sebagian penonton tidak ikut menjawab
+      const knows = r() < v.skill * SKILL[q.diff];
+      let at = now + 2500 + r() ** 1.5 * (span - 4000);
+      const wrong = q.options.map((_, i) => i).filter((i) => i !== q.answer);
+      // Yang tidak tahu menebak acak, kadang mencoba lagi.
+      const guesses = knows ? [q.answer] : [wrong[Math.floor(r() * wrong.length)], ...(r() < 0.5 ? [q.answer] : [])];
+      for (const g of guesses) {
+        this.queue.push({ at, evt: { type: 'comment', user: v.user, name: v.name, avatar: v.avatar, text: typed(q.options[g], r) } });
+        at += 1500 + r() * 3000;
       }
-      const letter = 'ABCD'[choice];
-      const text = r() < 0.7 ? letter : r() < 0.5 ? letter.toLowerCase() : `jawab ${letter}`;
-      const at = now + 1200 + r() ** 1.6 * (span - 2000);
-      this.queue.push({ at, evt: { type: 'comment', user: v.user, name: v.name, text } });
     }
     this.queue.sort((a, b) => a.at - b.at);
   }
