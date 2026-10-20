@@ -1,0 +1,462 @@
+/* Panggung 1080x1920 untuk TikTok LIVE potret. Diskalakan agar muat di jendela mana pun. */
+:root {
+  --bg: #0b0c0f;
+  --panel: rgba(255, 255, 255, 0.055);
+  --panel-strong: rgba(255, 255, 255, 0.09);
+  --line: rgba(255, 255, 255, 0.12);
+  --text: #f4f1ea;
+  --muted: #a7a298;
+  --accent: #f5b83d;
+  --accent-ink: #1a1305;
+  --good: #3fd77f;
+  --bad: #ff6159;
+  --land: #2b2e35;
+  --land-edge: #3c4049;
+}
+
+* { box-sizing: border-box; margin: 0; padding: 0; }
+
+html, body {
+  height: 100%;
+  background: var(--bg);
+  overflow: hidden;
+}
+
+body {
+  font-family: 'Plus Jakarta Sans', system-ui, -apple-system, 'Segoe UI', sans-serif;
+  color: var(--text);
+}
+
+#stage {
+  position: absolute;
+  left: 0;
+  top: 0;
+  width: 1080px;
+  height: 1920px;
+  transform-origin: 0 0;
+  overflow: hidden;
+  background: var(--bg);
+}
+
+.bg {
+  position: absolute;
+  inset: -200px;
+  background:
+    radial-gradient(900px 700px at 20% 18%, rgba(245, 184, 61, 0.16), transparent 70%),
+    radial-gradient(800px 900px at 85% 70%, rgba(214, 94, 52, 0.12), transparent 70%),
+    radial-gradient(700px 600px at 40% 105%, rgba(245, 184, 61, 0.08), transparent 70%);
+  animation: drift 40s ease-in-out infinite alternate;
+}
+
+@keyframes drift {
+  from { transform: translate(0, 0) scale(1); }
+  to { transform: translate(60px, -40px) scale(1.06); }
+}
+
+/* Area 0-200 px tertutup UI atas TikTok, jadi konten mulai di 200. */
+.top {
+  position: absolute;
+  top: 200px;
+  left: 60px;
+  right: 60px;
+  height: 64px;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+}
+
+.brand {
+  font-weight: 800;
+  font-size: 34px;
+  letter-spacing: 0.06em;
+}
+
+.brand span {
+  margin-left: 10px;
+  padding: 6px 14px;
+  border-radius: 10px;
+  background: var(--accent);
+  color: var(--accent-ink);
+  font-size: 22px;
+  letter-spacing: 0.08em;
+  vertical-align: 4px;
+}
+
+.meta {
+  font-size: 28px;
+  font-weight: 700;
+  color: var(--muted);
+}
+
+.row {
+  position: absolute;
+  top: 284px;
+  left: 60px;
+  right: 60px;
+  height: 72px;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+}
+
+.chips { display: flex; gap: 12px; }
+
+.chip {
+  padding: 10px 20px;
+  border-radius: 999px;
+  background: var(--panel-strong);
+  border: 1px solid var(--line);
+  font-size: 26px;
+  font-weight: 700;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+}
+
+.chip:empty { display: none; }
+.chip.diff[data-d='mudah'] { color: var(--good); }
+.chip.diff[data-d='sedang'] { color: var(--accent); }
+.chip.diff[data-d='sulit'] { color: var(--bad); }
+
+.secs {
+  min-width: 96px;
+  text-align: right;
+  font-size: 64px;
+  font-weight: 800;
+  font-variant-numeric: tabular-nums;
+}
+
+.secs.urgent { color: var(--bad); animation: pulse 1s ease-in-out infinite; }
+
+@keyframes pulse {
+  50% { transform: scale(1.12); }
+}
+
+.timer {
+  position: absolute;
+  top: 368px;
+  left: 60px;
+  right: 60px;
+  height: 12px;
+  border-radius: 6px;
+  background: var(--panel);
+  overflow: hidden;
+}
+
+.timer .fill {
+  height: 100%;
+  width: 100%;
+  background: var(--accent);
+  transform-origin: 0 50%;
+}
+
+.timer .fill.urgent { background: var(--bad); }
+
+.card {
+  position: absolute;
+  top: 404px;
+  left: 60px;
+  right: 60px;
+  height: 420px;
+  padding: 36px 44px;
+  border-radius: 32px;
+  background: var(--panel);
+  border: 1px solid var(--line);
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
+  gap: 18px;
+  overflow: hidden;
+}
+
+.card.tall { height: 842px; }
+
+.question {
+  font-size: 54px;
+  line-height: 1.22;
+  font-weight: 800;
+  text-wrap: balance;
+}
+
+.question.small {
+  font-size: 30px;
+  line-height: 1.3;
+  font-weight: 700;
+  color: var(--muted);
+}
+
+.map {
+  display: block;
+  width: 100%;
+  border-radius: 20px;
+  background: rgba(0, 0, 0, 0.25);
+}
+
+.fact {
+  display: flex;
+  flex-direction: column;
+  gap: 14px;
+}
+
+.fact-label {
+  align-self: flex-start;
+  padding: 6px 16px;
+  border-radius: 8px;
+  background: var(--accent);
+  color: var(--accent-ink);
+  font-size: 24px;
+  font-weight: 800;
+  letter-spacing: 0.12em;
+}
+
+.fact-text {
+  font-size: 42px;
+  line-height: 1.28;
+  font-weight: 700;
+  text-wrap: pretty;
+}
+
+.fact-source {
+  font-size: 24px;
+  color: var(--muted);
+}
+
+.intro-num {
+  font-size: 150px;
+  font-weight: 800;
+  line-height: 1;
+  color: var(--accent);
+}
+
+.intro-sub {
+  font-size: 44px;
+  font-weight: 700;
+}
+
+.intro-hint {
+  font-size: 30px;
+  color: var(--muted);
+}
+
+.card.center { align-items: center; text-align: center; }
+
+.options {
+  position: absolute;
+  top: 846px;
+  left: 60px;
+  right: 60px;
+  height: 400px;
+  list-style: none;
+  display: flex;
+  flex-direction: column;
+  gap: 14px;
+}
+
+.opt {
+  position: relative;
+  flex: 1;
+  display: flex;
+  align-items: center;
+  gap: 24px;
+  padding: 0 32px 0 18px;
+  border-radius: 24px;
+  background: var(--panel);
+  border: 2px solid var(--line);
+  overflow: hidden;
+  transition: opacity 0.4s, border-color 0.4s, background 0.4s;
+}
+
+.opt .bar {
+  position: absolute;
+  inset: 0;
+  background: rgba(255, 255, 255, 0.08);
+  transform-origin: 0 50%;
+  transform: scaleX(0);
+  transition: transform 0.9s cubic-bezier(0.2, 0.8, 0.2, 1);
+}
+
+.opt .letter {
+  position: relative;
+  flex: none;
+  width: 68px;
+  height: 68px;
+  border-radius: 18px;
+  display: grid;
+  place-items: center;
+  background: var(--accent);
+  color: var(--accent-ink);
+  font-size: 40px;
+  font-weight: 800;
+}
+
+.opt .label {
+  position: relative;
+  flex: 1;
+  font-size: 40px;
+  font-weight: 700;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.opt .pct {
+  position: relative;
+  font-size: 36px;
+  font-weight: 800;
+  font-variant-numeric: tabular-nums;
+}
+
+.opt.removed { opacity: 0.18; }
+.opt.removed .label { text-decoration: line-through; }
+.opt.dim { opacity: 0.45; }
+.opt.correct { border-color: var(--good); background: rgba(63, 215, 127, 0.12); }
+.opt.correct .letter { background: var(--good); }
+.opt.correct .bar { background: rgba(63, 215, 127, 0.22); }
+
+.footer {
+  position: absolute;
+  top: 1268px;
+  left: 60px;
+  right: 60px;
+  display: flex;
+  flex-direction: column;
+  gap: 14px;
+}
+
+.instr {
+  font-size: 32px;
+  font-weight: 700;
+  text-align: center;
+}
+
+.instr b { color: var(--accent); }
+
+.likebar {
+  position: relative;
+  height: 46px;
+  border-radius: 23px;
+  background: var(--panel);
+  border: 1px solid var(--line);
+  overflow: hidden;
+}
+
+.likebar .fill {
+  position: absolute;
+  inset: 0;
+  background: rgba(245, 184, 61, 0.35);
+  transform-origin: 0 50%;
+  transform: scaleX(0);
+  transition: transform 0.3s;
+}
+
+.likebar span {
+  position: relative;
+  display: block;
+  line-height: 44px;
+  text-align: center;
+  font-size: 24px;
+  font-weight: 700;
+}
+
+.likebar.hidden { visibility: hidden; }
+
+.board-title {
+  font-size: 56px;
+  font-weight: 800;
+}
+
+.board-sub {
+  font-size: 30px;
+  color: var(--muted);
+}
+
+.board {
+  list-style: none;
+  display: flex;
+  flex-direction: column;
+  gap: 14px;
+  margin-top: 12px;
+}
+
+.board li {
+  display: flex;
+  align-items: center;
+  gap: 24px;
+  padding: 18px 28px;
+  border-radius: 22px;
+  background: var(--panel-strong);
+  font-size: 40px;
+  font-weight: 700;
+}
+
+.board li:first-child { border: 2px solid var(--accent); }
+
+.board .rank {
+  width: 56px;
+  color: var(--accent);
+  font-weight: 800;
+}
+
+.board .name {
+  flex: 1;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.board .score {
+  font-variant-numeric: tabular-nums;
+  color: var(--muted);
+}
+
+.empty {
+  font-size: 40px;
+  font-weight: 700;
+  color: var(--muted);
+}
+
+/* Toast di kanan bawah, di luar jalur komentar TikTok yang ada di kiri. */
+.toasts {
+  position: absolute;
+  top: 1400px;
+  right: 40px;
+  width: 520px;
+  display: flex;
+  flex-direction: column;
+  align-items: flex-end;
+  gap: 12px;
+}
+
+.toast {
+  padding: 16px 24px;
+  border-radius: 18px;
+  background: rgba(20, 20, 24, 0.85);
+  border: 1px solid var(--line);
+  border-left: 6px solid var(--accent);
+  font-size: 26px;
+  font-weight: 700;
+  animation: toastIn 0.35s cubic-bezier(0.2, 0.8, 0.2, 1);
+}
+
+.toast[data-kind='hint'] { border-left-color: var(--good); }
+
+@keyframes toastIn {
+  from { opacity: 0; transform: translateY(20px); }
+}
+
+.enter { animation: enter 0.45s cubic-bezier(0.2, 0.8, 0.2, 1) both; }
+
+@keyframes enter {
+  from { opacity: 0; transform: translateY(24px); }
+}
+
+.conn {
+  position: absolute;
+  left: 60px;
+  bottom: 24px;
+  font-size: 20px;
+  color: var(--muted);
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .bg, .secs.urgent, .enter, .toast { animation: none; }
+}
