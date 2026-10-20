@@ -16,6 +16,8 @@ export const TOPIC_STYLE = {
   negara: { color: '#ff8a3d', icon: I('<circle cx="32" cy="32" r="25"/><ellipse cx="32" cy="32" rx="11" ry="25"/><path d="M8 24h48M8 40h48"/>') },
   provinsi: { color: '#2fbf71', icon: I('<path d="M32 58s18-18 18-32a18 18 0 0 0-36 0c0 14 18 32 18 32Z"/><circle cx="32" cy="26" r="6"/>') },
   bendera: { color: '#e8505b', icon: I('<path d="M14 58V8"/><path d="M14 10h34l-7 10 7 10H14"/>') },
+  ibukota: { color: '#bc4b51', icon: I('<path d="M8 56h48"/><path d="M14 56V32h36v24"/><path d="M21 32a11 11 0 0 1 22 0"/><path d="M32 21V6l11 4-11 4"/><path d="M23 41v8M32 41v8M41 41v8"/>') },
+  dunia: { color: '#8f9e3c', icon: I('<circle cx="28" cy="36" r="22"/><path d="M6 36h44M28 14c-9 9-9 35 0 44M28 14c9 9 9 35 0 44"/><path d="m50 4 3 6 6 1-4.5 4 1 6-5.5-3-5.5 3 1-6-4.5-4 6-1Z"/>') },
   campuran: { color: '#c9c4b8', icon: I('<path d="M8 20h12l24 24h12M8 44h12l24-24h12"/><path d="m50 14 6 6-6 6M50 38l6 6-6 6"/>') },
 };
 

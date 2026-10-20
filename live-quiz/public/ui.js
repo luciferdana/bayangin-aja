@@ -393,7 +393,7 @@ function reveal(v, ctx) {
       }
       if (mapBox) {
         rise(mapBox, prog(t, 500, 500), 16);
-        if (shapeMap) shapeMap.draw(q.options[q.answer], prog(t, 1000, 700), t);
+        if (shapeMap) shapeMap.draw(q.capital ? q.shape.name : q.options[q.answer], prog(t, 1000, 700), t);
         else map.draw(q.map, prog(t, 1000, 700), t);
       }
       rise(fakta, prog(t, 900, 500));

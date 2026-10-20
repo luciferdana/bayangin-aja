@@ -60,6 +60,8 @@ export const THEMES = [
   { id: 'negara', label: 'Tebak Negara', keyword: 'negara', gen: 'negara' },
   { id: 'provinsi', label: 'Tebak Provinsi', keyword: 'provinsi', gen: 'provinsi' },
   { id: 'bendera', label: 'Tebak Bendera', keyword: 'bendera', gen: 'bendera', alias: ['flag'] },
+  { id: 'ibukota', label: 'Ibu Kota Provinsi', keyword: 'ibukota', gen: 'ibukota', alias: ['ibu kota provinsi', 'kota'] },
+  { id: 'dunia', label: 'Ibu Kota Dunia', keyword: 'dunia', gen: 'dunia', alias: ['ibu kota negara', 'ibukota negara', 'ibu kota dunia'] },
 ];
 
 // ---- Pencocokan jawaban ketik ----

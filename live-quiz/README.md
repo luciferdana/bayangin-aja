@@ -84,7 +84,7 @@ Sekitar 7 menit: cara main, 10 soal (4 mudah, 4 sedang, 2 sulit), papan skor set
 podium juara ronde, klasemen live, lalu **vote tema** ronde berikutnya (15 detik, penonton
 mengetik nama topik, terbanyak menang). Setiap ronde satu topik penuh. Topik: sains, sejarah, olahraga,
 sepak bola, anime & manga, musik Indonesia, bahasa Inggris, kampus, pengetahuan umum, tebak negara,
-tebak provinsi, tebak bendera. Soal tiap topik dirotasi: semua soal satu tingkat keluar dulu sebelum
+tebak provinsi, tebak bendera, ibu kota provinsi, ibu kota dunia. Soal tiap topik dirotasi: semua soal satu tingkat keluar dulu sebelum
 ada yang terulang (soal peta juga).
 Kartu topik di layar vote memakai warna dan ikon per topik (`public/topics.js`, ikon digambar sendiri). Semua angka bisa
 diubah di `DEFAULTS` pada `public/engine.js`.
@@ -95,6 +95,9 @@ Soal dibuat otomatis dari peta: wilayah jawaban disorot, tiga pengecoh diambil d
 terdekat. Data: Natural Earth (86 negara terpilih, domain publik) dan peta 38 provinsi
 (CC BY 4.0, atribusi di `scripts/data/SUMBER.md` dan di pojok peta). Nama, ibu kota, tingkat,
 dan ejaan lain ada di `scripts/build-geo.mjs`; jalankan `npm run geo` setelah mengubahnya.
+Ibu Kota Provinsi (33 provinsi) dan Ibu Kota Dunia (84 negara) memakai data yang sama: wilayahnya
+disorot di peta, opsinya ibu kota wilayah terdekat. Tingkat, ejaan lain, dan fakta khusus (misalnya
+Canberra, Ankara, Banjarbaru) ada di `public/geoquiz.js`.
 Tebak Bendera memakai SVG dari `flag-icons` (MIT, `public/flags/LICENSE-flag-icons.txt`); saat jawaban
 dibuka, lokasi negaranya ditunjukkan di peta.
 

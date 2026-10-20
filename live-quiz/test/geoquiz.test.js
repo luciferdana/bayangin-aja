@@ -1,7 +1,7 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import fs from 'node:fs';
-import { geoQuestion, makeGenerators } from '../public/geoquiz.js';
+import { geoQuestion, makeGenerators, listFor } from '../public/geoquiz.js';
 import { buildMatcher, matchAnswer, mulberry32, QuizEngine } from '../public/engine.js';
 import { QUESTIONS } from '../public/questions.js';
 
@@ -17,10 +17,14 @@ test('data peta lengkap: 38 provinsi, negara bertingkat', () => {
 
 // Setiap wilayah sebagai jawaban: semua opsi dan alias, diketik persis, harus cocok
 // ke dirinya sendiri dan bukan ke pengecoh di sebelahnya.
-for (const [kind, from] of [['negara', 'countries'], ['provinsi', 'provinces']]) {
-  test(`setiap soal tebak ${kind} bisa diketik dan tidak tertukar`, () => {
-    for (const t of Object.values(geo[from])) {
+const KINDS = ['negara', 'provinsi', 'bendera', 'ibukota', 'dunia'];
+
+for (const kind of KINDS) {
+  test(`setiap soal ${kind} bisa diketik dan tidak tertukar`, () => {
+    for (const t of listFor(geo, kind)) {
       const q = geoQuestion(geo, kind, t);
+      assert.ok(q.q.length <= 110 && q.fact.length <= 130, `${q.id}: teks terlalu panjang`);
+      assert.ok(!q.q.toLowerCase().includes(q.options[q.answer].toLowerCase()), `${q.id}: jawaban tertulis di soal`);
       assert.equal(new Set(q.options).size, 4, q.id);
       const m = buildMatcher(q);
       q.options.forEach((o, i) => {
@@ -72,9 +76,9 @@ test('setiap soal tebak bendera punya gambar dan bisa diketik', () => {
 
 // Rotasi soal peta: dalam satu tingkat, wilayah baru boleh terulang setelah semua wilayah
 // tingkat itu sudah keluar.
-for (const [kind, from, needs] of [['negara', 'countries'], ['provinsi', 'provinces'], ['bendera', 'countries', 'flag']]) {
-  test(`soal tebak ${kind} dirotasi: semua wilayah keluar dulu sebelum ada yang terulang`, () => {
-    const list = Object.values(geo[from]).filter((x) => !needs || x[needs]);
+for (const kind of KINDS) {
+  test(`soal ${kind} dirotasi: semua wilayah keluar dulu sebelum ada yang terulang`, () => {
+    const list = listFor(geo, kind);
     const total = {};
     for (const x of list) total[x.diff] = (total[x.diff] ?? 0) + 1;
     const e = new QuizEngine(QUESTIONS, { rng: mulberry32(3), theme: kind, generators: makeGenerators(geo) });
