@@ -1,0 +1,234 @@
+<!doctype html>
+<html lang="id">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=1080">
+<title>Mockup Kuis Bayangin Aja</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Archivo:wdth,wght@62..125,100..900&family=JetBrains+Mono:wght@400;600;700&display=swap" rel="stylesheet">
+<style>
+/* Arah: grafis dokumenter / siaran. Sudut tajam, garis rambut, angka monospace, satu warna sinyal. */
+:root {
+  --ink: #050608;
+  --paper: #f2efe8;
+  --muted: #9c978c;
+  --hair: rgba(242, 239, 232, 0.2);
+  --hair-strong: rgba(242, 239, 232, 0.42);
+  --signal: #ff5b23;
+  --cond: 'Archivo', 'Arial Narrow', sans-serif;
+  --mono: 'JetBrains Mono', ui-monospace, monospace;
+}
+* { box-sizing: border-box; margin: 0; padding: 0; }
+body { width: 1080px; height: 1920px; overflow: hidden; background: var(--ink); color: var(--paper); font-family: var(--cond); }
+
+.stage { position: relative; width: 1080px; height: 1920px; overflow: hidden; }
+.bg { position: absolute; inset: 0; background: url(backdrop/earth-dusk.jpg) center / cover; }
+/* Scrim: atas pekat untuk teks, bawah tipis supaya Bumi tetap terasa. */
+.scrim {
+  position: absolute; inset: 0;
+  background:
+    linear-gradient(to bottom, rgba(5, 6, 8, 0.55) 0, rgba(5, 6, 8, 0.9) 260px, rgba(5, 6, 8, 0.86) 900px, rgba(5, 6, 8, 0.55) 1300px, rgba(5, 6, 8, 0.2) 1600px, rgba(5, 6, 8, 0.5) 1920px);
+}
+.grain {
+  position: absolute; inset: 0; opacity: 0.07; mix-blend-mode: overlay;
+  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='240' height='240'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.9' numOctaves='2' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23n)'/%3E%3C/svg%3E");
+}
+
+.ui { position: absolute; left: 64px; right: 64px; }
+.mono { font-family: var(--mono); letter-spacing: 0.06em; text-transform: uppercase; }
+.user { text-transform: none; letter-spacing: 0.02em; }
+
+/* Kepala */
+.head { top: 208px; display: flex; justify-content: space-between; align-items: flex-end; }
+.mark { font-size: 34px; font-weight: 850; font-stretch: 72%; letter-spacing: 0.16em; line-height: 1; }
+.mark small { display: block; margin-top: 10px; font-family: var(--mono); font-size: 17px; font-weight: 600; letter-spacing: 0.14em; color: var(--muted); }
+.qcount { font-family: var(--mono); font-size: 17px; color: var(--muted); text-align: right; letter-spacing: 0.14em; }
+.qcount b { display: block; font-family: var(--cond); font-size: 64px; font-weight: 800; font-stretch: 70%; letter-spacing: 0; color: var(--paper); line-height: 0.9; }
+.qcount b span { color: var(--muted); font-weight: 500; }
+
+/* Penggaris waktu: tiap ruas = 1 detik */
+.ruler { top: 300px; height: 40px; display: flex; align-items: center; gap: 18px; }
+.ticks { flex: 1; height: 10px; display: grid; grid-template-columns: repeat(20, 1fr); gap: 6px; }
+.ticks i { display: block; background: var(--hair); }
+.ticks i.on { background: var(--paper); }
+.ticks i.on.low { background: var(--signal); }
+.clock { font-family: var(--mono); font-size: 36px; font-weight: 700; letter-spacing: 0.02em; min-width: 132px; text-align: right; }
+.clock.low { color: var(--signal); }
+
+.cat { top: 364px; display: flex; gap: 22px; align-items: center; font-size: 19px; color: var(--muted); }
+.cat .sq { width: 12px; height: 12px; background: var(--signal); }
+.cat b { color: var(--paper); font-weight: 600; }
+
+/* Soal */
+.question { top: 420px; font-size: 70px; line-height: 1.04; font-weight: 760; font-stretch: 84%; letter-spacing: -0.005em; text-wrap: balance; }
+
+/* Opsi: baris dipisah garis rambut, tanpa kartu */
+.options { top: 790px; list-style: none; border-top: 1px solid var(--hair-strong); }
+.opt { position: relative; height: 112px; display: flex; align-items: center; gap: 30px; border-bottom: 1px solid var(--hair-strong); }
+.opt .k { width: 66px; height: 66px; flex: none; display: grid; place-items: center; border: 2px solid var(--paper); font-family: var(--mono); font-size: 34px; font-weight: 700; }
+.opt .t { flex: 1; font-size: 46px; font-weight: 620; font-stretch: 90%; }
+.opt .p { font-family: var(--mono); font-size: 30px; font-weight: 600; }
+.opt .bar { position: absolute; left: 0; bottom: -1px; height: 5px; background: var(--hair-strong); }
+
+/* Kaki */
+.foot { top: 1268px; display: flex; justify-content: space-between; align-items: center; font-size: 19px; }
+.keys { display: flex; align-items: center; gap: 10px; color: var(--muted); }
+.keys kbd { width: 40px; height: 40px; display: grid; place-items: center; border: 1.5px solid var(--paper); color: var(--paper); font-family: var(--mono); font-size: 20px; font-weight: 700; }
+.count { color: var(--muted); }
+.count b { color: var(--paper); font-size: 26px; }
+
+.assist { top: 1330px; display: flex; align-items: center; gap: 18px; font-size: 16px; color: var(--muted); }
+.seg { display: grid; grid-template-columns: repeat(10, 22px); gap: 4px; height: 14px; }
+.seg i { background: var(--hair); }
+.seg i.on { background: var(--paper); }
+
+/* Toast di kanan, jauh dari kolom komentar TikTok di kiri bawah */
+.toast { position: absolute; right: 64px; top: 1400px; padding: 14px 20px 14px 18px; background: rgba(5, 6, 8, 0.82); border-left: 5px solid var(--signal); font-size: 18px; }
+.toast b { color: var(--paper); }
+
+/* ---- Buka jawaban ---- */
+.rev-note { top: 300px; height: 40px; display: flex; align-items: center; gap: 16px; font-size: 19px; color: var(--muted); }
+.rev-note .line { flex: 1; height: 1px; background: var(--hair-strong); }
+.qsmall { top: 412px; font-size: 36px; line-height: 1.15; font-weight: 600; font-stretch: 88%; color: var(--muted); }
+.mapbox { top: 470px; height: 330px; border: 1px solid var(--hair-strong); background: rgba(5, 6, 8, 0.6); }
+.mapbox canvas { display: block; width: 100%; height: 100%; }
+.mapbox .coord { position: absolute; left: 18px; bottom: 14px; font-size: 16px; color: var(--muted); }
+.mapbox .tag { position: absolute; right: 18px; top: 14px; font-size: 16px; color: var(--muted); }
+
+.fakta { top: 828px; display: grid; grid-template-columns: auto 1fr; gap: 0 26px; }
+.fakta .lbl { grid-row: span 2; align-self: start; padding: 10px 14px; background: var(--signal); color: var(--ink); font-family: var(--mono); font-size: 20px; font-weight: 700; letter-spacing: 0.16em; }
+.fakta p { font-size: 40px; line-height: 1.16; font-weight: 600; font-stretch: 90%; }
+.fakta .src { margin-top: 14px; font-size: 16px; color: var(--muted); }
+
+.options.compact { top: 1012px; }
+.options.compact .opt { height: 74px; gap: 22px; padding-right: 20px; }
+.options.compact .k { width: 46px; height: 46px; font-size: 24px; border-width: 1.5px; }
+.options.compact .t { font-size: 34px; }
+.options.compact .p { font-size: 26px; }
+.opt.dim { opacity: 0.4; }
+.opt.win { background: var(--paper); color: var(--ink); border-bottom-color: var(--paper); }
+.opt.win .k { border-color: var(--ink); background: var(--ink); color: var(--paper); }
+.opt.win .bar { background: var(--signal); height: 6px; }
+.opt .stamp { font-family: var(--mono); font-size: 18px; font-weight: 700; letter-spacing: 0.16em; padding: 6px 10px; background: var(--signal); color: var(--ink); }
+
+.stats { top: 1330px; display: flex; justify-content: space-between; font-size: 18px; color: var(--muted); }
+.stats b { color: var(--paper); }
+
+/* ---- Papan skor ---- */
+.btitle { top: 372px; font-size: 92px; font-weight: 820; font-stretch: 68%; line-height: 0.95; letter-spacing: 0.01em; text-transform: uppercase; }
+.bsub { top: 474px; font-size: 19px; color: var(--muted); }
+.board { top: 530px; list-style: none; border-top: 1px solid var(--hair-strong); }
+.board li { height: 118px; display: grid; grid-template-columns: 92px 1fr auto 150px; align-items: center; border-bottom: 1px solid var(--hair-strong); }
+.board .r { font-family: var(--mono); font-size: 30px; font-weight: 700; color: var(--muted); }
+.board .n { font-size: 50px; font-weight: 680; font-stretch: 88%; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.board .c { font-family: var(--mono); font-size: 17px; color: var(--muted); padding-right: 24px; }
+.board .s { font-family: var(--mono); font-size: 36px; font-weight: 700; text-align: right; }
+.board li:first-child .r { color: var(--signal); }
+.board li:first-child .n { font-size: 60px; font-weight: 800; }
+.board li:first-child { height: 150px; }
+.next { top: 1250px; display: flex; justify-content: space-between; align-items: baseline; border-top: 1px solid var(--hair-strong); padding-top: 22px; font-size: 19px; color: var(--muted); }
+.next b { font-size: 40px; color: var(--paper); }
+</style>
+</head>
+<body>
+<div class="stage">
+  <div class="bg"></div>
+  <div class="scrim"></div>
+  <div class="grain"></div>
+  <div id="root"></div>
+</div>
+
+<script type="module">
+const state = new URLSearchParams(location.search).get('state') || 'answer';
+const root = document.getElementById('root');
+
+const head = (n) => `
+  <div class="ui head">
+    <div class="mark">BAYANGIN AJA<small>KUIS LANGSUNG · RONDE 02</small></div>
+    <div class="qcount">SOAL<b>${String(n).padStart(2, '0')}<span>/10</span></b></div>
+  </div>`;
+
+if (state === 'answer') {
+  const left = 14;
+  const ticks = Array.from({ length: 20 }, (_, i) => `<i class="${i < left ? 'on' : ''}${left <= 5 ? ' low' : ''}"></i>`).join('');
+  const opts = ['Piano', 'Gitar', 'Biola', 'Seruling'];
+  root.innerHTML = `
+    ${head(3)}
+    <div class="ui ruler"><div class="ticks">${ticks}</div><div class="clock">00:${String(left).padStart(2, '0')}</div></div>
+    <div class="ui cat mono"><span class="sq"></span><b>SEJARAH INDONESIA</b><span>TINGKAT SULIT</span></div>
+    <div class="ui question">Di Kongres Pemuda II 1928, Indonesia Raya pertama kali diperdengarkan dengan alat musik apa?</div>
+    <ol class="ui options">${opts.map((t, i) => `<li class="opt"><span class="k">${'ABCD'[i]}</span><span class="t">${t}</span></li>`).join('')}</ol>
+    <div class="ui foot mono"><div class="keys">KETIK <kbd>A</kbd><kbd>B</kbd><kbd>C</kbd><kbd>D</kbd> DI KOMENTAR</div><div class="count"><b>128</b> JAWABAN</div></div>
+    <div class="ui assist mono"><span>BANTUAN 50:50</span><div class="seg">${Array.from({ length: 10 }, (_, i) => `<i class="${i < 6 ? 'on' : ''}"></i>`).join('')}</div><span>64/100 LIKE</span></div>
+    <div class="toast mono"><b class="user">@dodi_103</b> kirim Mawar x3</div>`;
+}
+
+if (state === 'reveal') {
+  const opts = [['Nusa Tenggara Barat', 21], ['Nusa Tenggara Timur', 61], ['Bali', 9], ['Sulawesi Selatan', 9]];
+  root.innerHTML = `
+    ${head(4)}
+    <div class="ui rev-note mono"><span>WAKTU HABIS</span><span class="line"></span><span>JAWABAN DIBUKA</span></div>
+    <div class="ui cat mono"><span class="sq"></span><b>HEWAN DAN ALAM</b><span>TINGKAT SEDANG</span></div>
+    <div class="ui qsmall">Komodo hidup liar di provinsi...</div>
+    <div class="ui mapbox"><canvas id="map" width="1904" height="716"></canvas>
+      <div class="coord mono">8°33' LS · 119°29' BT</div><div class="tag mono">PETA · NATURAL EARTH</div></div>
+    <div class="ui fakta"><span class="lbl">FAKTA</span>
+      <p>Taman Nasional Komodo masuk daftar Warisan Dunia UNESCO sejak 1991.</p>
+      <div class="src mono">SUMBER: UNESCO</div></div>
+    <ol class="ui options compact">${opts.map(([t, p], i) => `
+      <li class="opt ${i === 1 ? 'win' : 'dim'}"><span class="k">${'ABCD'[i]}</span><span class="t">${t}</span>
+      ${i === 1 ? '<span class="stamp">BENAR</span>' : ''}<span class="p">${p}%</span><span class="bar" style="width:${p}%"></span></li>`).join('')}</ol>
+    <div class="ui stats mono"><span><b>78</b> DARI 128 BENAR</span><span>TERCEPAT <b class="user">@rina_101</b> · 2,4 DTK</span></div>`;
+  drawMap();
+}
+
+if (state === 'board') {
+  const rows = [['rina_101', 4, 584], ['galih_108', 4, 551], ['putri_107', 3, 437], ['bayu_108', 3, 402], ['nisa_109', 3, 388]];
+  root.innerHTML = `
+    ${head(5)}
+    <div class="ui btitle">Papan skor</div>
+    <div class="ui bsub mono">RONDE 02 · SETELAH 5 DARI 10 SOAL</div>
+    <ol class="ui board">${rows.map(([n, c, s], i) => `
+      <li><span class="r">${String(i + 1).padStart(2, '0')}</span><span class="n">${n}</span><span class="c">${c} BENAR</span><span class="s">${s}</span></li>`).join('')}</ol>
+    <div class="ui next mono"><span>SOAL BERIKUTNYA</span><b>00:06</b></div>`;
+}
+
+async function drawMap() {
+  const data = await fetch('../public/data/map.json').then((r) => r.json());
+  const cv = document.getElementById('map');
+  const g = cv.getContext('2d');
+  const [x0, y0, x1, y1] = data.indonesia.bbox;
+  const k = Math.cos((((y0 + y1) / 2) * Math.PI) / 180);
+  const s = Math.min(cv.width / ((x1 - x0) * k), cv.height / (y1 - y0));
+  const ox = (cv.width - (x1 - x0) * k * s) / 2, oy = (cv.height - (y1 - y0) * s) / 2;
+  const P = (lon, lat) => [ox + (lon - x0) * k * s, oy + (y1 - lat) * s];
+  // Graticule tiap 5 derajat
+  g.strokeStyle = 'rgba(242,239,232,0.08)'; g.lineWidth = 2;
+  for (let lon = 95; lon <= 140; lon += 5) { const [x] = P(lon, 0); g.beginPath(); g.moveTo(x, 0); g.lineTo(x, cv.height); g.stroke(); }
+  for (let lat = -10; lat <= 5; lat += 5) { const [, y] = P(100, lat); g.beginPath(); g.moveTo(0, y); g.lineTo(cv.width, y); g.stroke(); }
+  // Garis pantai saja, tanpa isi
+  g.strokeStyle = 'rgba(242,239,232,0.62)'; g.lineWidth = 2.4; g.lineJoin = 'round';
+  g.fillStyle = 'rgba(242,239,232,0.05)';
+  for (const ring of data.indonesia.rings) {
+    g.beginPath(); ring.forEach(([a, b], i) => { const [x, y] = P(a, b); i ? g.lineTo(x, y) : g.moveTo(x, y); });
+    g.closePath(); g.fill(); g.stroke();
+  }
+  // Penanda: bidik silang warna sinyal
+  const [mx, my] = P(119.49, -8.55);
+  g.strokeStyle = '#ff5b23'; g.lineWidth = 4;
+  g.beginPath(); g.arc(mx, my, 30, 0, Math.PI * 2); g.stroke();
+  g.beginPath(); g.arc(mx, my, 62, 0, Math.PI * 2); g.globalAlpha = 0.35; g.stroke(); g.globalAlpha = 1;
+  for (const [dx, dy] of [[1, 0], [-1, 0], [0, 1], [0, -1]]) { g.beginPath(); g.moveTo(mx + dx * 40, my + dy * 40); g.lineTo(mx + dx * 84, my + dy * 84); g.stroke(); }
+  g.fillStyle = '#ff5b23'; g.beginPath(); g.arc(mx, my, 8, 0, Math.PI * 2); g.fill();
+  g.font = '700 34px "JetBrains Mono", monospace'; g.textBaseline = 'middle';
+  const label = 'PULAU KOMODO'; const w = g.measureText(label).width;
+  g.fillStyle = '#ff5b23'; g.fillRect(mx + 100, my - 120, w + 36, 58);
+  g.fillStyle = '#050608'; g.fillText(label, mx + 118, my - 90);
+  g.strokeStyle = '#ff5b23'; g.lineWidth = 3; g.beginPath(); g.moveTo(mx + 44, my - 44); g.lineTo(mx + 100, my - 92); g.stroke();
+}
+
+document.fonts.ready.then(() => setTimeout(() => (document.title = 'done'), state === 'reveal' ? 600 : 200));
+</script>
+</body>
+</html>

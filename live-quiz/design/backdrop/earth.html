@@ -1,0 +1,73 @@
+<!-- Render latar Bumi senja untuk kuis. Tekstur NASA dari repo three.js (examples/textures/planets):
+     earth_day_4096.jpg, earth_night_4096.jpg, earth_bump_roughness_clouds_4096.jpg -> taruh di folder tex/,
+     three@0.170.0 di node_modules/. Parameter: ?lat=-4&lon=112&dist=2.9&sun=-150 -->
+<!doctype html><html><body style="margin:0;background:#000">
+<canvas id="c" width="1080" height="1920"></canvas>
+<script type="module">
+import * as THREE from './node_modules/three/build/three.module.js';
+const p = new URLSearchParams(location.search);
+const LAT = +(p.get('lat') ?? -2), LON = +(p.get('lon') ?? 116), DIST = +(p.get('dist') ?? 2.35), SUNLON = +(p.get('sun') ?? 150);
+const r = new THREE.WebGLRenderer({ canvas: c, antialias: true });
+r.setSize(1080, 1920, false);
+const scene = new THREE.Scene();
+const cam = new THREE.PerspectiveCamera(32, 1080 / 1920, 0.01, 100);
+const L = new THREE.TextureLoader();
+const load = (f) => new Promise((ok) => L.load('tex/' + f, (t) => { t.colorSpace = THREE.SRGBColorSpace; t.anisotropy = 8; ok(t); }));
+const [day, night, clouds] = await Promise.all([load('earth_day_4096.jpg'), load('earth_night_4096.jpg'), load('earth_bump_roughness_clouds_4096.jpg')]);
+clouds.colorSpace = THREE.NoColorSpace;
+const dir = (lat, lon) => { const a = lat * Math.PI / 180, b = lon * Math.PI / 180; return new THREE.Vector3(Math.cos(a) * Math.cos(b), Math.sin(a), -Math.cos(a) * Math.sin(b)); };
+const sun = dir(8, SUNLON).normalize();
+const mat = new THREE.ShaderMaterial({
+  uniforms: { day: { value: day }, night: { value: night }, clouds: { value: clouds }, sun: { value: sun } },
+  vertexShader: `varying vec2 vUv; varying vec3 vN; varying vec3 vW;
+    void main(){ vUv=uv; vN=normalize((modelMatrix*vec4(normal,0.)).xyz); vW=(modelMatrix*vec4(position,1.)).xyz; gl_Position=projectionMatrix*viewMatrix*vec4(vW,1.); }`,
+  fragmentShader: `uniform sampler2D day, night, clouds; uniform vec3 sun; varying vec2 vUv; varying vec3 vN; varying vec3 vW;
+    vec3 toLin(vec3 c){ return pow(c, vec3(2.2)); }
+    void main(){
+      float d = dot(normalize(vN), sun);
+      float dayMix = smoothstep(-0.06, 0.18, d);
+      vec3 dc = texture2D(day, vUv).rgb;
+      vec3 nc = texture2D(night, vUv).rgb;
+      float cl = texture2D(clouds, vUv).b;
+      vec3 V = normalize(cameraPosition - vW);
+      vec3 H = normalize(sun + V);
+      float rough = texture2D(clouds, vUv).g;
+      float spec = pow(max(dot(normalize(vN), H), 0.), 40.) * (1. - rough) * 0.6;
+      vec3 lit = dc * (0.08 + 1.1 * max(d, 0.)) + spec * vec3(1.,.85,.6) * max(d,0.);
+      lit = mix(lit, vec3(1.) * (0.04 + 0.9 * max(d, 0.)), cl * 0.6);
+      vec3 dark = nc * vec3(1.0, 0.78, 0.5) * 1.8 * (1. - cl * 0.7);
+      vec3 col = mix(dark, lit, dayMix);
+      float term = exp(-pow(d / 0.06, 2.)) * 0.22;
+      col += vec3(1., .5, .22) * term * (0.25 + cl);
+      float fres = pow(1. - max(dot(normalize(vN), V), 0.), 3.);
+      col += vec3(.35, .6, 1.) * fres * 0.6 * smoothstep(-0.2, 0.4, d);
+      gl_FragColor = vec4(col, 1.);
+      #include <colorspace_fragment>
+    }`,
+});
+const earth = new THREE.Mesh(new THREE.SphereGeometry(1, 256, 256), mat);
+scene.add(earth);
+const atm = new THREE.Mesh(new THREE.SphereGeometry(1.035, 128, 128), new THREE.ShaderMaterial({
+  uniforms: { sun: { value: sun } }, transparent: true, side: THREE.BackSide, depthWrite: false, blending: THREE.AdditiveBlending,
+  vertexShader: `varying vec3 vN; varying vec3 vW; void main(){ vN=normalize((modelMatrix*vec4(normal,0.)).xyz); vW=(modelMatrix*vec4(position,1.)).xyz; gl_Position=projectionMatrix*viewMatrix*vec4(vW,1.);} `,
+  fragmentShader: `uniform vec3 sun; varying vec3 vN; varying vec3 vW;
+    void main(){ vec3 V=normalize(cameraPosition-vW); float rim=pow(1.-abs(dot(vN,V)),2.2); float l=smoothstep(-0.35,0.5,dot(normalize(vW),sun));
+      vec3 c=mix(vec3(1.,.42,.15),vec3(.35,.62,1.),l); gl_FragColor=vec4(c*rim*1.1*(0.15+l),1.);
+      #include <colorspace_fragment>
+    }`,
+}));
+scene.add(atm);
+// bintang
+const sg = new THREE.BufferGeometry(); const sp = [];
+let s = 7; const rnd = () => (s = (s * 16807) % 2147483647) / 2147483647;
+for (let i = 0; i < 2500; i++) { const v = new THREE.Vector3(rnd() * 2 - 1, rnd() * 2 - 1, rnd() * 2 - 1).normalize().multiplyScalar(40); sp.push(v.x, v.y, v.z); }
+sg.setAttribute('position', new THREE.Float32BufferAttribute(sp, 3));
+scene.add(new THREE.Points(sg, new THREE.PointsMaterial({ size: 0.06, color: 0x9a968c })));
+const P = dir(LAT, LON);
+const up = new THREE.Vector3(0, 1, 0);
+cam.position.copy(P.clone().multiplyScalar(DIST).add(up.clone().multiplyScalar(-0.55)));
+cam.up.set(0, 1, 0);
+cam.lookAt(P.clone().multiplyScalar(0.55).add(up.clone().multiplyScalar(0.62)));
+r.render(scene, cam);
+document.title = 'done';
+</script></body></html>
