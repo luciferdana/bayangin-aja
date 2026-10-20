@@ -564,7 +564,7 @@ export class QuizEngine {
       if (target === this.spot) this.spot.end = Math.max(this.spot.end, now + 1500);
       return;
     }
-    const spot = { id: `${user}:${now}`, user, name, avatar: p.avatar, gift: giftName, count, tier: tier.tier,
+    const spot = { id: `${user}:${now}`, user, name, avatar: p.avatar, gift: giftName, giftImg: cleanAvatar(evt.giftImage), count, tier: tier.tier,
       mult: p.boost.mult, questions: p.boost.left, ms: tier.ms, hint: !!tier.hint, freeze: !!tier.freeze };
     // Antrean penuh: buang sorotan kecil paling lama, sorotan besar tidak pernah dibuang.
     if (this.spotQueue.length >= this.cfg.spotlightQueue) {

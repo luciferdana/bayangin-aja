@@ -676,6 +676,18 @@ export function lowerZone(box) {
   };
 }
 
+// Gambar gift dari TikTok; kalau gagal dimuat, cukup teks namanya.
+function giftImage(src, size) {
+  const img = new Image();
+  img.className = 'gift-img';
+  img.referrerPolicy = 'no-referrer';
+  img.alt = '';
+  Object.assign(img.style, { width: `${size}px`, height: `${size}px` });
+  img.onerror = () => img.remove();
+  img.src = src;
+  return img;
+}
+
 // ---------------------------------------------------------------- sorotan gift
 // kecil/sedang: kartu di zona bawah. besar: layar penuh, timer kuis berhenti.
 // Nilai koin tidak pernah ditampilkan; yang tampil foto, nama, gift, dan boost.
@@ -703,22 +715,28 @@ export function spotlightLayer(box) {
       ringBox.append(burst);
       const name = el('div', 'spot-name user', s.name);
       const gift = el('div', 'spot-gift mono');
+      const giftLine = el('span');
+      if (s.giftImg) gift.append(giftImage(s.giftImg, 64));
+      gift.append(giftLine);
       const boost = el('div', 'spot-boost mono');
       const note = el('div', 'spot-note mono', s.frozen ? 'WAKTU DIHENTIKAN SEJENAK' : '');
       node.append(dim, label, ringBox, name, gift, boost, note);
-      Object.assign(parts, { dim, label, rings, av, bits, name, gift, boost, note });
+      Object.assign(parts, { dim, label, rings, av, bits, name, gift, giftLine, boost, note });
     } else {
       const card = el('div', 'spot-card');
       const av = avatar(s, s.tier === 'sedang' ? 168 : 112);
       const who = el('div', 'spot-who');
       const name = el('div', 'spot-name user', s.name);
       const gift = el('div', 'spot-gift mono');
+      const giftLine = el('span');
+      if (s.giftImg) gift.append(giftImage(s.giftImg, s.tier === 'sedang' ? 44 : 36));
+      gift.append(giftLine);
       who.append(name, gift);
       if (s.hintGiven) who.append(el('div', 'spot-hint mono', 'BANTUAN 50:50 DIBUKA UNTUK SEMUA'));
       const boost = el('div', 'spot-boost');
       card.append(av, who, boost);
       node.append(card);
-      Object.assign(parts, { card, av, name, gift, boost });
+      Object.assign(parts, { card, av, name, gift, giftLine, boost });
     }
     box.replaceChildren(node);
     return { id: s.id, node, parts };
@@ -743,7 +761,7 @@ export function spotlightLayer(box) {
       const t = s.age;
       const out = clamp((s.dur - t) / 400);
       const giftLine = `KIRIM ${s.gift.toUpperCase()}${s.count > 1 ? ` x${s.count}` : ''}`;
-      P.gift.textContent = giftLine;
+      P.giftLine.textContent = giftLine;
       const bump = 1 + 0.12 * Math.max(0, 1 - (now - bumpAt) / 250);
       P.gift.style.transform = `scale(${bump})`;
       if (s.tier === 'besar') {

@@ -51,10 +51,12 @@ const step = (ms, draw = true) => page.evaluate(([a, b]) => window.__step(a, b),
 const settle = () => page.evaluate(() => Promise.all([...document.images].map((i) => i.decode().catch(() => {}))));
 
 // Gift buatan dari salah satu penonton simulasi (supaya fotonya ikut tampil).
+// Gambar gift contoh (di live sungguhan gambarnya dari TikTok).
+const GIFT_IMG = `data:image/svg+xml;base64,${Buffer.from('<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 64 64"><circle cx="32" cy="26" r="16" fill="#e8455a"/><circle cx="26" cy="22" r="7" fill="#f26b7d"/><rect x="30" y="38" width="4" height="22" fill="#3d9b5a"/><ellipse cx="40" cy="48" rx="8" ry="4" fill="#3d9b5a"/></svg>').toString('base64')}`;
 const GIFT = {
-  kecil: { gift: 'Mawar', count: 3, coins: 3 },
-  sedang: { gift: 'Topi Koboi', count: 1, coins: 99 },
-  besar: { gift: 'Paus', count: 1, coins: 500 },
+  kecil: { gift: 'Mawar', count: 3, coins: 3, giftImage: GIFT_IMG },
+  sedang: { gift: 'Topi Koboi', count: 1, coins: 99, giftImage: GIFT_IMG },
+  besar: { gift: 'Paus', count: 1, coins: 500, giftImage: GIFT_IMG },
 };
 const inject = (tier, viewer) => page.evaluate(([g, i]) => {
   const all = window.__quiz.sim.viewers;
