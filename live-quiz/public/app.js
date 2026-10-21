@@ -3,6 +3,7 @@
 //
 // Parameter URL:
 //   ?sim=1          penonton palsu (tanpa TikTok)    &viewers=60  &simgift=0 tanpa gift acak
+//                   tombol 1/2/3: kirim gift kecil/sedang/sultan (combo Mawar x3, x10, x100)
 //   &speed=4        percepat waktu (uji)             &seed=7   hasil acak tetap
 //   &q=komodo       mulai dari soal tertentu         &like=100 target like bantuan
 //   &tema=negara    topik ronde pertama (sains, sejarah, olahraga, umum, negara, provinsi, campuran);
@@ -22,6 +23,7 @@ import { Sound } from './sfx.js';
 import { Globe } from './globe.js';
 
 const params = new URLSearchParams(location.search);
+const ROTATION_KEY = 'kuis-rotasi';
 const num = (k, d) => (params.has(k) ? Number(params.get(k)) : d);
 const capture = params.has('capture');
 const speed = num('speed', 1);
@@ -83,6 +85,18 @@ let firedCues = new Set();
 let heavy = 1;
 let last = null;
 let toastIds = new Set();
+let savedRound = 0;
+
+// Simpan catatan rotasi tiap kali ronde baru dimulai.
+function saveRotation(v) {
+  if (v.round === savedRound || sim || capture) return;
+  savedRound = v.round;
+  try {
+    localStorage.setItem(ROTATION_KEY, JSON.stringify(engine.rotation()));
+  } catch {
+    // penyimpanan penuh atau diblokir: rotasi tetap jalan di sesi ini
+  }
+}
 
 const play = (name, at) => sound.play(name, at);
 
@@ -92,6 +106,7 @@ function render(now) {
   engine.tick(now);
   sim?.step(now);
   const v = engine.view(now);
+  saveRotation(v);
 
   const key = `${v.round}:${v.qNumber}:${v.phase}`;
   if (key !== sceneKey) {
@@ -116,8 +131,8 @@ function render(now) {
   heavy += (target - heavy) * (1 - Math.exp(-dt / 350));
   scrimHeavy.style.opacity = heavy.toFixed(3);
 
-  lower.update(v);
-  spot.update(v, now, play);
+  lower.update(v, now);
+  spot.update(v, now, play, capture ? 0 : sound.latencyMs);
 
   // Bunyi untuk toast follow/share/bantuan yang baru masuk.
   const ids = new Set(v.toasts.map((t) => Math.round(now - t.age)));
@@ -147,7 +162,24 @@ async function boot() {
     generators: ctx.geoData ? makeGenerators(ctx.geoData) : {},
     config: { hintLikes: num('like', DEFAULTS.hintLikes) },
   });
+  // Giliran soal dan siklus topik dilanjutkan dari sesi sebelumnya (hanya live sungguhan;
+  // simulasi dan render tidak membaca atau menulis catatan ini).
+  if (!params.has('sim') && !capture) {
+    try {
+      engine.restoreRotation(JSON.parse(localStorage.getItem(ROTATION_KEY) || 'null'));
+    } catch {
+      // penyimpanan browser tidak tersedia: mulai dari awal seperti biasa
+    }
+  }
   if (params.has('sim')) sim = new Sim(engine, seed ? mulberry32(Number(seed) + 1) : Math.random, { viewers: num('viewers', 60), gifts: params.get('simgift') !== '0' });
+  // Mode simulasi: tombol 1/2/3 mengirim combo Mawar tingkat kecil/sedang/sultan untuk uji sorotan.
+  if (sim) {
+    const TEST_GIFTS = { 1: 3, 2: 10, 3: 100 };
+    addEventListener('keydown', (ev) => {
+      const count = TEST_GIFTS[ev.key];
+      if (count) engine.handle({ type: 'gift', ...sim.pick(), gift: 'Mawar', count, coins: count }, clock());
+    });
+  }
   if (params.has('debug')) connEl.textContent = sim ? 'simulasi' : 'menunggu server';
   connect();
   engine.start(clock());
