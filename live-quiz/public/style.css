@@ -208,9 +208,9 @@ body { color: var(--paper); font-family: var(--cond); }
 
 /* ---- Cara main ---- */
 .steps { top: 400px; list-style: none; border-top: 1px solid var(--hair-strong); }
-.steps li { display: grid; grid-template-columns: 90px 1fr; align-items: baseline; padding: 20px 0; border-bottom: 1px solid var(--hair-strong); }
+.steps li { display: grid; grid-template-columns: 90px 1fr; align-items: baseline; padding: 14px 0; border-bottom: 1px solid var(--hair-strong); }
 .steps .no { font-family: var(--mono); font-size: 24px; font-weight: 700; color: var(--signal); }
-.steps .tx { font-size: 40px; line-height: 1.15; font-weight: 600; font-stretch: 90%; }
+.steps .tx { font-size: 37px; line-height: 1.12; font-weight: 600; font-stretch: 90%; }
 .steps .tx b { font-weight: 800; }
 
 /* ---- Pembuka soal ---- */
@@ -244,8 +244,8 @@ body { color: var(--paper); font-family: var(--cond); }
 .vrow .vn { position: relative; font-family: var(--mono); font-size: 48px; font-weight: 700; }
 
 /* ---- Zona bawah: klasemen live mini (di bawah area kuis, di atas kolom komentar) ---- */
-#lower { position: absolute; left: 0; right: 0; top: 1160px; height: 420px; pointer-events: none; }
-.lower { position: absolute; inset: 0; padding: 0 64px; background: linear-gradient(to bottom, rgba(5, 6, 8, 0) 0, rgba(5, 6, 8, 0.6) 30px, rgba(5, 6, 8, 0.6) 380px, rgba(5, 6, 8, 0) 420px); }
+#lower { position: absolute; left: 0; right: 0; top: 1160px; height: 640px; pointer-events: none; }
+.lower { position: absolute; inset: 0; padding: 0 64px; background: linear-gradient(to bottom, rgba(5, 6, 8, 0) 0, rgba(5, 6, 8, 0.6) 30px, rgba(5, 6, 8, 0.6) 600px, rgba(5, 6, 8, 0) 640px); }
 .lsec.round { margin-top: 14px; }
 .lsec.round .chips5 { padding-top: 10px; }
 .lsec.round .c5n { font-size: 14px; }
@@ -263,6 +263,83 @@ body { color: var(--paper); font-family: var(--cond); }
 .c5n { font-family: var(--mono); font-size: 16px; max-width: 180px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
 .c5s { font-family: var(--mono); font-size: 18px; font-weight: 700; }
 
+/* ---- Daftar boost gift di zona bawah: kartu berjalan ke kiri, berulang ---- */
+.lsec.gifts { margin-top: 14px; }
+.gstrip { position: relative; margin-top: 12px; height: 96px; overflow: hidden;
+  -webkit-mask-image: linear-gradient(to right, transparent 0, #000 40px, #000 calc(100% - 40px), transparent 100%);
+  mask-image: linear-gradient(to right, transparent 0, #000 40px, #000 calc(100% - 40px), transparent 100%); }
+.gtrack { position: absolute; left: 0; top: 0; display: flex; gap: 14px; }
+.gcard { position: relative; flex: none; width: 358px; height: 96px; display: flex; align-items: center; gap: 18px; padding: 0 18px 0 16px;
+  background: rgba(5, 6, 8, 0.85); border: 1px solid var(--hair-strong); overflow: hidden; }
+.gcard.besar { border-color: var(--paper); border-left: 6px solid var(--signal); }
+.gstripes { position: absolute; inset: 0; opacity: 0.1; background: repeating-linear-gradient(-45deg, var(--signal) 0 14px, transparent 14px 28px); background-size: 56px 56px; }
+.gx { position: relative; flex: none; width: 74px; display: flex; flex-direction: column; align-items: center; }
+.gx b { font-size: 62px; font-weight: 850; font-stretch: 62%; line-height: 0.85; color: var(--signal); }
+.gx span { margin-top: 4px; font-size: 12px; color: var(--muted); }
+.gtx { position: relative; min-width: 0; display: flex; flex-direction: column; gap: 3px; }
+.gt { font-size: 28px; font-weight: 800; font-stretch: 72%; line-height: 1; }
+.ge { font-size: 18px; font-weight: 600; font-stretch: 90%; color: var(--muted); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.gp { font-size: 13px; color: var(--paper); white-space: nowrap; }
+
+/* ---- Banner promosi setup live: lower-third siaran (zona bawah dan layar jeda) ----
+   Tag kertas | slot kata bergiliran | CTA sinyal. Masuk lewat tiga balok sapuan berundak. */
+.promo { position: relative; margin-top: 14px; height: 112px; display: flex; align-items: stretch; overflow: hidden; }
+.promo.ui { position: absolute; margin-top: 0; }
+.pr-tag { flex: none; width: 228px; display: flex; flex-direction: column; justify-content: center; gap: 4px; padding: 0 20px;
+  background: var(--paper); color: var(--ink); }
+.pr-tag span { font-size: 13px; font-weight: 700; letter-spacing: 0.16em; color: #6b665c; }
+.pr-tag b { font-size: 40px; font-weight: 850; font-stretch: 64%; line-height: 0.92; white-space: nowrap; }
+.pr-slot { position: relative; flex: 1; min-width: 0; overflow: hidden; background: rgba(5, 6, 8, 0.94);
+  border-top: 1px solid var(--hair-strong); border-bottom: 1px solid var(--hair-strong); }
+.pr-top { position: absolute; left: 24px; right: 24px; top: 14px; display: flex; justify-content: space-between; font-size: 13px; color: var(--muted); }
+.pr-top span:last-child { color: var(--paper); }
+.pr-words { position: absolute; left: 24px; right: 24px; top: 38px; height: 62px; }
+.pr-word { position: absolute; left: 0; top: 0; font-size: 58px; font-weight: 850; font-stretch: 64%; line-height: 1; white-space: nowrap; opacity: 0; }
+/* Motion banner: warna kata dan gema mengikuti kulit slot per kata */
+.pr-word { color: var(--pr-fg, var(--paper)); transform-origin: 0 60%; }
+.pr-word.echo { color: transparent; -webkit-text-stroke: 1.5px var(--pr-ec, var(--signal)); }
+.pr-slot.light .pr-top { color: #6b665c; }
+.pr-slot.light .pr-top span:last-child { color: var(--ink); }
+.pr-under { position: absolute; left: 24px; width: 46%; bottom: 8px; height: 16px; overflow: visible; }
+.pr-under path { fill: none; stroke: #c6ff3d; stroke-width: 5; stroke-linecap: round; }
+.pr-slot.light .pr-under path { stroke: var(--signal); }
+.pr-glitch i { position: absolute; left: -20px; right: -20px; background: var(--signal); opacity: 0; }
+.promo.big .pr-under { left: 26px; bottom: 12px; height: 20px; }
+.promo.big .pr-word.echo { -webkit-text-stroke-width: 2px; }
+.pr-bar { position: absolute; left: 0; bottom: 0; width: 100%; height: 4px; background: var(--signal); transform-origin: 0 50%; transform: scaleX(0); }
+.pr-cta { flex: none; display: flex; flex-direction: column; justify-content: center; gap: 2px; padding: 0 26px 0 22px; background: var(--signal); color: var(--ink); }
+.pr-cta > span { font-size: 13px; font-weight: 700; letter-spacing: 0.16em; }
+.pr-dm { display: flex; align-items: center; gap: 10px; }
+.pr-dm b { font-size: 52px; font-weight: 850; font-stretch: 64%; line-height: 0.92; white-space: nowrap; }
+.pr-arrow { font-size: 26px; font-weight: 700; }
+.pr-wipe { position: absolute; inset: 0; transform: scaleX(0); transform-origin: 0 50%; pointer-events: none; }
+.pr-wipe.w3 { background: #1c1d22; }
+.pr-wipe.w2 { background: var(--paper); }
+.pr-wipe.w1 { background: var(--signal); }
+.promo.big { height: 152px; }
+.promo.big .pr-tag { width: 272px; padding: 0 26px; gap: 6px; }
+.promo.big .pr-tag span { font-size: 15px; }
+.promo.big .pr-tag b { font-size: 44px; }
+.promo.big .pr-top { left: 26px; right: 26px; top: 22px; font-size: 15px; }
+.promo.big .pr-words { left: 26px; right: 26px; top: 54px; height: 70px; }
+.promo.big .pr-word { font-size: 60px; }
+.promo.big /* Motion banner: warna kata dan gema mengikuti kulit slot per kata */
+.pr-word { color: var(--pr-fg, var(--paper)); transform-origin: 0 60%; }
+.pr-word.echo { color: transparent; -webkit-text-stroke: 1.5px var(--pr-ec, var(--signal)); }
+.pr-slot.light .pr-top { color: #6b665c; }
+.pr-slot.light .pr-top span:last-child { color: var(--ink); }
+.pr-under { position: absolute; left: 24px; width: 46%; bottom: 8px; height: 16px; overflow: visible; }
+.pr-under path { fill: none; stroke: #c6ff3d; stroke-width: 5; stroke-linecap: round; }
+.pr-slot.light .pr-under path { stroke: var(--signal); }
+.pr-glitch i { position: absolute; left: -20px; right: -20px; background: var(--signal); opacity: 0; }
+.promo.big .pr-under { left: 26px; bottom: 12px; height: 20px; }
+.promo.big .pr-word.echo { -webkit-text-stroke-width: 2px; }
+.pr-bar { height: 6px; }
+.promo.big .pr-cta { padding: 0 30px 0 26px; }
+.promo.big .pr-cta > span { font-size: 15px; }
+.promo.big .pr-dm b { font-size: 58px; }
+.promo.big .pr-arrow { font-size: 28px; }
+
 /* ---- Pendukung live di halaman klasemen ---- */
 .fans { top: 1170px; }
 .fans-title { font-size: 16px; color: var(--muted); margin-bottom: 12px; }
@@ -272,55 +349,84 @@ body { color: var(--paper); font-family: var(--cond); }
 .fans-row .av { border-color: var(--signal); }
 .fans-row .nm { font-family: var(--mono); font-size: 13px; color: var(--muted); max-width: 92px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
 
-/* ---- Sorotan gift: slot bawah (y 1150-1440), tidak pernah menutupi soal ---- */
+/* ---- Sorotan gift: kartu kertas. Foto kotak penuh, nama besar, tab boost menonjol di atas,
+   keuntungan khusus menggantung di bawah. Slot bawah (y 1150-1440), tidak menutupi soal;
+   hanya kartu hero sultan yang mengambil tengah layar sebentar (timer kuis berhenti). ---- */
 #spot { position: absolute; inset: 0; pointer-events: none; }
-.spot-card { position: absolute; left: 48px; right: 48px; display: flex; align-items: center; gap: 26px; padding: 0 30px 0 22px;
-  background: rgba(5, 6, 8, 0.96); border: 1px solid var(--paper); border-left: 10px solid var(--signal); overflow: hidden;
-  box-shadow: 0 0 0 1px rgba(255, 91, 35, 0.4), 0 18px 50px rgba(0, 0, 0, 0.6), 0 0 60px rgba(255, 91, 35, 0.25); }
-.spot.kecil .spot-card { top: 1176px; height: 170px; }
-.spot.sedang .spot-card { top: 1166px; height: 214px; }
-.spot-stripes { position: absolute; inset: 0; opacity: 0.09;
-  background: repeating-linear-gradient(-45deg, var(--signal) 0 14px, transparent 14px 28px); background-size: 56px 56px; }
-.spot-flash { position: absolute; inset: 0; background: #fff; opacity: 0; }
-.spot-shine { position: absolute; top: -20px; bottom: -20px; left: 0; width: 140px;
-  background: linear-gradient(90deg, transparent, rgba(255, 255, 255, 0.28), transparent); }
-.spot-life { position: absolute; left: 0; right: 0; bottom: 0; height: 5px; background: var(--signal); transform-origin: 0 50%; }
-.spot-avbox { position: relative; flex: none; display: grid; place-items: center; }
-.spot-avbox .av { border: 4px solid var(--signal); }
-.spot-ring { position: absolute; inset: -12px; border-radius: 50%; border: 3px dashed var(--signal); }
-.spot-who { flex: 1; min-width: 0; position: relative; }
-.spot-name { font-size: 56px; font-weight: 800; font-stretch: 80%; line-height: 1; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
-.spot.sedang .spot-name { font-size: 70px; }
-.spot-gift { margin-top: 10px; font-size: 20px; color: var(--muted); transform-origin: 0 50%; display: flex; align-items: center; gap: 10px; }
-.gift-img { object-fit: contain; flex: none; }
-.spot-hint { margin-top: 10px; display: inline-block; padding: 4px 10px; background: var(--paper); color: var(--ink); font-size: 16px; font-weight: 700; }
-.spot-boost { position: relative; flex: none; display: flex; flex-direction: column; align-items: flex-end; }
-.spot-boost b { font-size: 104px; font-weight: 850; font-stretch: 62%; line-height: 0.9; color: var(--signal); transform-origin: 70% 55%;
-  text-shadow: 0 0 30px rgba(255, 91, 35, 0.55); }
-.spot.sedang .spot-boost b { font-size: 132px; }
-.spot-boost span { font-size: 16px; color: var(--muted); }
-.spot-boost .burst { left: 60%; top: 45%; }
-.burst { position: absolute; left: 50%; top: 50%; }
-.burst i { position: absolute; width: 14px; height: 14px; margin: -7px; background: var(--signal); opacity: 0; }
-.burst i:nth-child(3n) { background: var(--paper); width: 10px; height: 10px; }
-.burst i:nth-child(4n) { border-radius: 50%; }
+.gc { position: absolute; left: 64px; right: 64px; }
+.gc-face { position: relative; height: 100%; display: flex; background: var(--paper); color: var(--ink); overflow: hidden; }
+.gc-ph { position: relative; flex: none; height: 100%; aspect-ratio: 1; overflow: hidden; background: #2a2723; display: grid; place-items: center; }
+.gc-ph .ini { font-family: var(--mono); font-size: 64px; font-weight: 700; color: var(--paper); }
+.gc-ph img { position: absolute; inset: 0; width: 100%; height: 100%; object-fit: cover; }
+.gc-ph.has-img .ini { visibility: hidden; }
+.gc-body { flex: 1; min-width: 0; display: flex; flex-direction: column; justify-content: center; padding: 0 30px; }
+.gc-lbl { font-size: 17px; font-weight: 700; color: #6b665c; }
+.gc-name { margin-top: 6px; font-size: 76px; font-weight: 850; font-stretch: 64%; line-height: 0.92; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.gc-gift { margin-top: 10px; display: flex; align-items: center; gap: 10px; font-size: 20px; color: #3d3a34; transform-origin: 0 50%; white-space: nowrap; }
+.gc-life { position: absolute; left: 0; right: 0; bottom: 0; height: 5px; background: var(--ink); transform-origin: 0 50%; }
+.gc-tab { position: absolute; right: 0; bottom: 100%; display: flex; align-items: flex-end; gap: 14px; padding: 10px 22px 8px;
+  background: var(--signal); color: var(--ink); transform-origin: 100% 100%; }
+.gc-tab b { font-size: 80px; font-weight: 850; font-stretch: 60%; line-height: 0.8; }
+.gc-tab span { padding-bottom: 6px; font-size: 16px; font-weight: 700; line-height: 1.3; }
+.gc-perk { position: absolute; right: 0; top: 100%; padding: 8px 14px; background: var(--ink); color: var(--paper);
+  border: 1px solid var(--paper); border-top: 0; font-size: 17px; font-weight: 700; }
+.gc.kecil { top: 1244px; height: 150px; }
+.gc.sedang { top: 1238px; height: 186px; }
+.gc.besar { top: 1250px; height: 200px; }
+.gc.besar .gc-lbl { color: var(--signal); }
+.gc.besar .gc-tab b { font-size: 100px; }
 
-.spot-edge { position: absolute; inset: 0; opacity: 0;
-  box-shadow: inset 0 0 0 8px var(--signal), inset 0 0 120px rgba(255, 91, 35, 0.55); }
-.spot-band { position: absolute; left: 0; right: 0; top: 1150px; height: 290px; display: flex; align-items: center; gap: 34px; padding: 0 48px 0 72px;
-  background: rgba(5, 6, 8, 0.97); border-top: 4px solid var(--signal); border-bottom: 4px solid var(--signal); transform-origin: 50% 50%;
-  box-shadow: 0 0 80px rgba(255, 91, 35, 0.35); }
-.spot-band .spot-stripes { opacity: 0.12; }
-.spot-rings { position: relative; flex: none; width: 200px; height: 200px; }
-.spot-rings .ring { position: absolute; inset: 0; border: 4px solid var(--signal); border-radius: 50%; }
-.spot-rings .av { position: absolute; inset: 0; border: 6px solid var(--signal); }
-.spot-tagrow { display: flex; align-items: center; gap: 16px; margin-bottom: 12px; white-space: nowrap; }
-.spot-label { flex: none; display: inline-block; padding: 6px 14px; background: var(--signal); color: var(--ink); font-size: 24px; font-weight: 800; letter-spacing: 0.22em; transform-origin: 0 50%; }
-.spot-note { min-width: 0; overflow: hidden; text-overflow: ellipsis; font-size: 15px; color: var(--paper); letter-spacing: 0.14em; }
-.spot.besar .spot-name { font-size: 92px; font-weight: 850; font-stretch: 66%; }
-.spot.besar .spot-gift { font-size: 24px; }
-.spot.besar .spot-boost b { font-size: 170px; }
-.spot.besar .spot-boost span { font-size: 18px; color: var(--paper); }
+/* Takeover sultan: poster esports. Blok warna penuh layar, huruf raksasa dibengkokkan,
+   foto duotone bertepi sobek, coretan garis, segitiga, glitch. Dikunci ke ketukan musik. */
+.st { position: absolute; inset: 0; overflow: hidden; }
+.st-layer { position: absolute; inset: 0; }
+.st-tri i { position: absolute; width: 0; height: 0; border-left: 15px solid transparent; border-right: 15px solid transparent;
+  border-top: 26px solid var(--signal); }
+.st-scrib { position: absolute; left: 0; top: 0; width: 1080px; height: 1920px; }
+.st-scrib path { fill: none; stroke: #c6ff3d; stroke-width: 9; stroke-linecap: round; stroke-linejoin: round; }
+.st-line { position: absolute; left: 56px; right: 56px; font-family: var(--cond); font-weight: 900; font-stretch: 62%;
+  line-height: 0.8; text-transform: uppercase; white-space: nowrap; transform-origin: 50% 50%; }
+.st-s1 { font-size: 640px; color: var(--ink); }
+.st-s1.a { top: 280px; }
+.st-s1.b { top: 790px; text-align: right; }
+.st-s2 { color: var(--signal); text-transform: none; }
+.st-photo { position: absolute; left: 650px; top: 1430px; width: 360px; height: 430px; padding: 16px; background: var(--paper); transform-origin: 50% 50%; }
+.st-photo .in { position: relative; width: 100%; height: 100%; overflow: hidden; background: #e2508f; }
+.st-photo .gc-ph { position: absolute; inset: 0; width: 100%; height: 100%; aspect-ratio: auto; background: transparent; }
+.st-photo .gc-ph .ini { font-size: 260px; color: var(--ink); mix-blend-mode: multiply; }
+.st-photo .gc-ph img { filter: grayscale(1) contrast(1.35) brightness(1.08); mix-blend-mode: multiply; }
+.st-photo .dots { position: absolute; inset: 0; opacity: 0.45; mix-blend-mode: multiply;
+  background-image: radial-gradient(rgba(5, 6, 8, 0.7) 1.8px, transparent 2.3px); background-size: 10px 10px; }
+.st-big { position: absolute; left: 56px; right: 56px; top: 470px; text-align: center; font-weight: 900; font-stretch: 58%;
+  line-height: 0.8; white-space: nowrap; transform-origin: 50% 50%; }
+.st-s3 { font-size: 900px; color: var(--signal); }
+.st-s4 { font-size: 560px; color: var(--ink); }
+.st-strip { position: absolute; left: 64px; right: 64px; display: flex; justify-content: space-between; align-items: center;
+  padding: 18px 24px; background: var(--ink); color: var(--paper); font-size: 24px; }
+.st-strip b { font-family: var(--cond); font-size: 56px; font-weight: 900; font-stretch: 62%; letter-spacing: 0; color: var(--signal); }
+.st-strip b { max-width: 62%; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.st-s3s { top: 1260px; }
+.st-s4s { top: 1180px; }
+.st-s4l { top: 1300px; background: var(--paper); color: var(--ink); }
+.st-s4l b { color: var(--ink); }
+.st-pre { position: absolute; left: 64px; right: 64px; top: 860px; display: flex; flex-direction: column; align-items: center; gap: 16px;
+  font-size: 26px; color: var(--muted); }
+.st-pre .user { align-self: stretch; text-align: center; white-space: nowrap; overflow: hidden; font-family: var(--cond); font-size: 90px; font-weight: 900; font-stretch: 62%; letter-spacing: 0; color: var(--paper); }
+.st-pre b { color: var(--signal); }
+/* Gema: kembaran garis di belakang kata raksasa; warnanya mengikuti latar adegan */
+.st .echo { color: transparent; -webkit-text-stroke: 4px var(--paper); }
+.st[data-scene="2"] .echo { -webkit-text-stroke-color: #e2508f; }
+.st[data-scene="3"] .echo { -webkit-text-stroke-color: var(--signal); opacity: 0.8; }
+.st-who { position: absolute; left: 56px; top: 1470px; width: 540px; display: flex; flex-direction: column; gap: 12px; font-size: 24px; color: var(--ink); }
+.st-who .user { font-family: var(--cond); font-size: 76px; font-weight: 900; font-stretch: 62%; letter-spacing: 0; line-height: 0.95;
+  white-space: nowrap; overflow: hidden; }
+.st-who b { align-self: flex-start; padding: 8px 12px; background: var(--ink); color: var(--paper); font-size: 22px; }
+.st-cap { position: absolute; left: 56px; display: flex; flex-direction: column; gap: 8px; font-size: 24px; color: var(--paper); }
+.st-cap b { font-size: 30px; color: var(--signal); }
+.st-bars i { position: absolute; left: -100px; right: -100px; opacity: 0; }
+.st-top { position: absolute; left: 64px; right: 64px; top: 248px; height: 44px; display: flex; justify-content: space-between; align-items: center;
+  padding: 0 14px; background: var(--ink); font-size: 20px; color: var(--paper); }
+.st-top b { font-size: 34px; color: var(--signal); }
 
 /* ---- Kartu topik seperti kartu remi (layar vote) ---- */
 .vhand { top: 420px; height: 400px; }
@@ -350,7 +456,7 @@ body { color: var(--paper); font-family: var(--cond); }
 .vt-bar { margin-top: -8px; width: 100%; height: 8px; background: var(--tc); transform-origin: 0 50%; transform: scaleX(0); }
 
 /* ---- Lencana topik di layar cara main: kartu mini bermuka kertas ---- */
-.topic-badge { top: 232px; left: auto; right: 64px; display: flex; align-items: center; gap: 14px; padding: 12px 20px 12px 14px;
+.topic-badge { top: 258px; left: auto; right: 64px; max-width: 420px; display: flex; align-items: center; gap: 14px; padding: 12px 20px 12px 14px;
   border-radius: 10px; background: var(--paper); color: var(--ink); transform-origin: 100% 50%; box-shadow: 0 10px 30px rgba(0, 0, 0, 0.5); }
 .topic-badge .vicon { width: 56px; height: 56px; color: color-mix(in srgb, var(--tc) 70%, #000); }
 .topic-badge .vicon svg { width: 100%; height: 100%; display: block; }
