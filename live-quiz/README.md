@@ -46,7 +46,7 @@ eulerstream.com lalu jalankan dengan `EULER_API_KEY=... npm start -- bayangin.3d
 ## Aturan main
 
 - Pilihan jawaban **terkunci** di awal soal. Penonton menebak tanpa pilihan; pilihan terbuka
-  setelah soal itu dapat 200 like (atau ada gift sedang). Soal Benar/Mitos selalu terbuka.
+  setelah soal itu dapat 70 like. Soal Benar/Mitos selalu terbuka.
 - Ketik teks jawabannya. Huruf besar-kecil, tanda baca, dan typo kecil dimaafkan. Angka harus
   persis. Ejaan lain per soal diatur lewat `alias`.
 - Maksimal 3 tebakan per soal. Sekali benar, jawaban terkunci.
@@ -62,16 +62,16 @@ foto profil, nama, nama gift, dan boost-nya.
 
 | Tingkat | Koin | Boost | Tampilan |
 |---|---|---|---|
-| Kecil | 1-9 | poin x2 untuk 1 soal | kartu meluncur di slot bawah |
-| Sedang | 10-99 | poin x2 untuk 3 soal, membuka pilihan jawaban atas nama pemberi (kalau sudah terbuka: dua pilihan salah dicoret) | kartu lebih besar di slot bawah |
-| Besar | 100+ | poin x3 untuk 3 soal, timer menjawab berhenti selama sorotan | pita "Sultan Masuk" di slot bawah, bingkai layar menyala |
+| Kecil | 1-9 | poin x2 untuk 1 soal, +5 suara vote | kartu meluncur di slot bawah |
+| Sedang | 10-29 | poin x2 dan +2 jatah tebakan untuk 3 soal, +20 suara vote | kartu lebih besar di slot bawah |
+| Besar | 30+ | poin x3 untuk 3 soal, +100 suara vote, timer menjawab berhenti selama sorotan | pita "Sultan Masuk" di slot bawah, bingkai layar menyala, klip musik sultan |
 
 Semua sorotan muncul di slot bawah (tempat klasemen mini), jadi soal dan pilihan tidak pernah
 tertutup. Tiap sorotan punya animasi masuk dan SFX sendiri (whoosh, power-up, kilau; gift besar
 ditambah hantaman), dibuat `scripts/make-sfx.py`.
 
 Boost hanya mengalikan poin jawaban yang **benar**; jawaban salah tetap 0. Boost terpakai satu per
-soal yang dijawab. Saat fase vote, gift menambah bobot suara pemberinya. Pemberi gift masuk
+soal yang dijawab. Suara vote dari gift disimpan sampai pemberinya ikut vote topik berikutnya. Pemberi gift masuk
 daftar Pendukung Live di halaman klasemen. Ambang koin dan boost diatur di `giftTiers`.
 
 Catatan kebijakan: TikTok membatasi live yang dianggap memancing gift secara tidak wajar
@@ -81,8 +81,10 @@ boost"; penonton tahu dari sorotan yang muncul. Hindari mengucapkan ajakan seper
 ### Alur ronde
 
 Sekitar 7 menit: cara main, 10 soal (4 mudah, 4 sedang, 2 sulit), papan skor setelah soal 5,
-podium juara ronde, klasemen live, lalu **vote tema** ronde berikutnya (15 detik, penonton
-mengetik nama topik, terbanyak menang). Setiap ronde satu topik penuh. Topik: sains, sejarah, olahraga,
+podium juara ronde, klasemen live, lalu **vote tema** ronde berikutnya (30 detik, penonton
+mengetik nama topik atau huruf kartunya A/K/Q/J, terbanyak menang). Semua topik kebagian main
+sekali sebelum ada topik yang ditawarkan lagi. Giliran soal dan topik disimpan di browser, jadi
+live berikutnya melanjutkan, bukan mulai dari soal yang sama. Setiap ronde satu topik penuh. Topik: sains, sejarah, olahraga,
 sepak bola, anime & manga, musik Indonesia, bahasa Inggris, kampus, pengetahuan umum, tebak negara,
 tebak provinsi, tebak bendera, ibu kota provinsi, ibu kota dunia. Soal tiap topik dirotasi: semua soal satu tingkat keluar dulu sebelum
 ada yang terulang (soal peta juga).
