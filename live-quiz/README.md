@@ -15,9 +15,6 @@ npm run live                  # server + baca komentar TikTok LIVE @bayangin.3d
 # akun lain: npm start -- namaakun   (npm start saja = tanpa TikTok, hanya untuk uji)
 ```
 
-Di Windows ada jalan pintas: klik dua kali `update-dan-live.bat`. File ini mengambil update terbaru,
-mematikan server lama, lalu menjalankan `npm run live`.
-
 Lalu tambahkan halaman kuis sebagai sumber:
 
 - **TikTok LIVE Studio**: Add source → **Link**, URL **`http://localtest.me:8787`**
