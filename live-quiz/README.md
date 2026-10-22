@@ -105,7 +105,8 @@ dibuka, lokasi negaranya ditunjukkan di peta.
 
 ## Menambah soal
 
-Edit `public/questions.js`. Tiap soal butuh fakta dan sumber. Opsi maksimal 3 kata dan 22
+Edit `public/questions.js`. Tiap soal butuh fakta dan sumber. Soal yang diberi `baru: true` keluar lebih dulu
+(sebelum soal lama yang belum tampil, dan di awal ronde) sampai masing-masing pernah tampil sekali. Opsi maksimal 3 kata dan 22
 huruf. Lalu jalankan `npm test`: tes menolak soal yang opsinya bisa tertukar saat diketik.
 
 ## Render dan cek

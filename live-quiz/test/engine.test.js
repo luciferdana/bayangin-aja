@@ -118,6 +118,23 @@ test('soal tiap topik dirotasi: semua keluar dulu sebelum ada yang terulang', ()
   }
 });
 
+// Soal bertanda baru: true keluar lebih dulu (sebelum soal lama yang belum tampil) dan di awal ronde.
+test('soal baru didahulukan di ronde pertama topiknya', () => {
+  for (const theme of THEMES.filter((t) => t.cats)) {
+    const e = make({ theme: theme.id });
+    e.start(0);
+    const inTheme = QUESTIONS.filter((q) => theme.cats.includes(q.cat));
+    for (const [diff, n] of Object.entries(DEFAULTS.mix)) {
+      const fresh = inTheme.filter((q) => q.diff === diff && q.baru).length;
+      const picked = e.questions.filter((q) => q.diff === diff);
+      const want = Math.min(n, fresh, picked.length);
+      assert.ok(picked.filter((q) => q.baru).length >= want, `${theme.id} ${diff}: soal baru tidak didahulukan`);
+    }
+    const flags = e.questions.map((q) => !!q.baru);
+    assert.ok(flags.indexOf(false) === -1 || !flags.slice(flags.indexOf(false)).includes(true), `${theme.id}: soal baru tidak di awal ronde`);
+  }
+});
+
 test('rumus skor: dasar per tingkat, bonus cepat, beruntun', () => {
   const e = make();
   const A = DEFAULTS.answerMs;
