@@ -85,6 +85,17 @@ export class Globe {
     this.date = date;
     this.view = { ...HOME };
     this.ready = false;
+    this.light = false;
+  }
+
+  // Tema terang: langit pucat tanpa bintang, Bumi selalu tersinari penuh seperti siang.
+  setLight(on) {
+    this.light = on;
+    if (!this.ready) return;
+    this.renderer.setClearColor(on ? 0xdde5ea : 0x000000);
+    this.stars.visible = !on;
+    if (on) this.sun.copy(CAMERA_SUN.siang);
+    else if (this.mode !== 'nyata') this.sun.copy(CAMERA_SUN[this.mode] ?? CAMERA_SUN.senja);
   }
 
   async init() {
@@ -128,8 +139,10 @@ export class Globe {
     }
     const g = new THREE.BufferGeometry();
     g.setAttribute('position', new THREE.Float32BufferAttribute(pts, 3));
-    this.scene.add(new THREE.Points(g, new THREE.PointsMaterial({ size: 0.06, color: 0x9a968c })));
+    this.stars = new THREE.Points(g, new THREE.PointsMaterial({ size: 0.06, color: 0x9a968c }));
+    this.scene.add(this.stars);
     this.ready = true;
+    this.setLight(this.light);
   }
 
   // focus: { lat, lon } untuk soal lokasi, atau null untuk berputar bebas.
@@ -148,7 +161,7 @@ export class Globe {
     }
     // Titik (lat, lon) menghadap kamera di +Z.
     this.earth.rotation.set(this.view.lat * DEG, -Math.PI / 2 - this.view.lon * DEG, 0);
-    if (this.mode === 'nyata') {
+    if (this.mode === 'nyata' && !this.light) {
       const ss = subsolar(this.date(t));
       this.sun.copy(surface(ss.lat, ss.lon).applyEuler(this.earth.rotation));
     }

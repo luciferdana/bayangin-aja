@@ -1,6 +1,6 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { QuizEngine, mulberry32, DEFAULTS, THEMES, buildMatcher, matchAnswer, normalize, editDistance } from '../public/engine.js';
+import { QuizEngine, mulberry32, DEFAULTS, THEMES, buildMatcher, matchAnswer, matchTopic, topicMatcher, normalize, editDistance } from '../public/engine.js';
 import { QUESTIONS } from '../public/questions.js';
 
 const make = (opts = {}) => (engineRef.e = new QuizEngine(QUESTIONS, { rng: mulberry32(1), ...opts }));
@@ -90,7 +90,7 @@ test('soal tidak berulang sampai bank habis', () => {
 // Rotasi per topik: dalam satu tingkat, soal baru boleh terulang setelah semua soal tingkat itu
 // di topik tersebut sudah tampil. Diuji untuk tiap topik bank soal, 8 ronde berturut-turut.
 test('soal tiap topik dirotasi: semua keluar dulu sebelum ada yang terulang', () => {
-  for (const theme of THEMES.filter((t) => t.cats)) {
+  for (const theme of THEMES.filter((t) => t.cats && !t.gen)) {
     const e = make({ theme: theme.id });
     e.start(0);
     const total = {};
@@ -120,17 +120,19 @@ test('soal tiap topik dirotasi: semua keluar dulu sebelum ada yang terulang', ()
 
 // Soal bertanda baru: true keluar lebih dulu (sebelum soal lama yang belum tampil) dan di awal ronde.
 test('soal baru didahulukan di ronde pertama topiknya', () => {
-  for (const theme of THEMES.filter((t) => t.cats)) {
+  for (const theme of THEMES.filter((t) => t.cats && !t.gen)) {
     const e = make({ theme: theme.id });
     e.start(0);
     const inTheme = QUESTIONS.filter((q) => theme.cats.includes(q.cat));
     for (const [diff, n] of Object.entries(DEFAULTS.mix)) {
-      const fresh = inTheme.filter((q) => q.diff === diff && q.baru).length;
+      // Soal jebakan didahulukan lebih dulu lagi, jadi dihitung bersama soal baru.
+      const isNew = (q) => q.baru || q.jebakan;
+      const fresh = inTheme.filter((q) => q.diff === diff && isNew(q)).length;
       const picked = e.questions.filter((q) => q.diff === diff);
       const want = Math.min(n, fresh, picked.length);
-      assert.ok(picked.filter((q) => q.baru).length >= want, `${theme.id} ${diff}: soal baru tidak didahulukan`);
+      assert.ok(picked.filter(isNew).length >= want, `${theme.id} ${diff}: soal baru tidak didahulukan`);
     }
-    const flags = e.questions.map((q) => !!q.baru);
+    const flags = e.questions.filter((q) => !q.jebakan).map((q) => !!q.baru);
     assert.ok(flags.indexOf(false) === -1 || !flags.slice(flags.indexOf(false)).includes(true), `${theme.id}: soal baru tidak di awal ronde`);
   }
 });
@@ -143,6 +145,8 @@ test('rumus skor: dasar per tingkat, bonus cepat, beruntun', () => {
   assert.equal(e.pointsFor('sedang', A / 2, 1).total, 150 + 38);
   assert.equal(e.pointsFor('sulit', A, 1).total, 200);
   assert.equal(e.pointsFor('sulit', A, 3).total, 250);
+  assert.equal(e.pointsFor('mudah', 0, 1, 1.5).total, 225); // pengali pecahan dibulatkan
+  assert.equal(e.pointsFor('sedang', A / 2, 1, 2.5).total, Math.round(188 * 2.5));
 });
 
 test('alur jawaban, penilaian, dan pemenang tercepat', () => {
@@ -297,33 +301,51 @@ test('gift: tingkat dari koin, boost, sorotan berantre, combo digabung', () => {
   const e = make();
   e.start(0);
   e.handle({ type: 'gift', user: 'a', name: 'A', gift: 'Mawar', count: 1, coins: 1 }, 10);
-  e.handle({ type: 'gift', user: 'a', name: 'A', gift: 'Mawar', count: 4, coins: 4 }, 20); // combo
+  e.handle({ type: 'gift', user: 'a', name: 'A', gift: 'Mawar', count: 3, coins: 3 }, 20); // combo, tingkat sama
+  e.handle({ type: 'gift', user: 'h', name: 'H', gift: 'Jari Hati', count: 1, coins: 5 }, 25);
   e.handle({ type: 'gift', user: 'b', name: 'B', gift: 'Topi', count: 1, coins: 20 }, 30);
+  e.handle({ type: 'gift', user: 'd', name: 'D', gift: 'Donat', count: 1, coins: 30 }, 35);
   e.handle({ type: 'gift', user: 'c', name: 'C', gift: 'Paus', count: 1, coins: 500 }, 40);
   e.tick(50);
-  let v = e.view(50);
+  const v = e.view(50);
   assert.equal(v.spotlight.name, 'A');
-  assert.equal(v.spotlight.count, 5);
+  assert.equal(v.spotlight.count, 4);
   assert.equal(v.spotlight.tier, 'kecil');
   assert.ok(!('coins' in v.spotlight)); // nilai koin tidak pernah dibawa ke tampilan
-  assert.deepEqual(e.players.get('a').boost, { mult: 2, left: 2 }); // 1 + 1 soal
-  assert.deepEqual(e.players.get('b').boost, { mult: 2, left: 3 });
-  assert.deepEqual(e.players.get('c').boost, { mult: 3, left: 3 });
+  assert.deepEqual(e.players.get('a').boost, { mult: 1.5, left: 2 }); // 1 + 1 soal
+  assert.deepEqual(e.players.get('h').boost, { mult: 2, left: 2 });
+  assert.deepEqual(e.players.get('b').boost, { mult: 2.5, left: 3 });
+  assert.deepEqual(e.players.get('d').boost, { mult: 3, left: 3 });
+  assert.deepEqual(e.players.get('c').boost, { mult: 5, left: 5 });
   let t = 50;
   const seen = [];
-  for (; t < 30000; t += 100) {
+  for (; t < 60000; t += 100) {
     e.tick(t);
     const s = e.view(t).spotlight;
     if (s && seen.at(-1) !== s.name) seen.push(s.name);
   }
-  assert.deepEqual(seen, ['A', 'B', 'C']);
-  assert.deepEqual(e.view(t).supporters.map((x) => x.name), ['C', 'B', 'A']);
+  assert.deepEqual(seen, ['A', 'H', 'B', 'D', 'C']);
+  assert.deepEqual(e.view(t).supporters.map((x) => x.name), ['C', 'D', 'B', 'H', 'A']);
+});
+
+test('tingkat gift: 1, 5, 10, 30, 100 koin', () => {
+  const tierOf = (coins) => {
+    const e = make();
+    e.start(0);
+    e.handle({ type: 'gift', user: 'g', name: 'G', gift: 'X', coins }, 1);
+    e.tick(2);
+    return e.view(2).spotlight;
+  };
+  assert.deepEqual([1, 4, 5, 9, 10, 29, 30, 99, 100, 500].map((c) => tierOf(c).mult), [1.5, 1.5, 2, 2, 2.5, 2.5, 3, 3, 5, 5]);
+  assert.deepEqual([4, 9, 29, 99, 100].map((c) => tierOf(c).tier), ['kecil', 'kecil', 'sedang', 'besar', 'besar']);
+  assert.equal(tierOf(99).pick, false);
+  assert.equal(tierOf(100).pick, true);
 });
 
 test('boost mengalikan poin jawaban benar dan habis setelah dipakai', () => {
   const e = make();
   e.start(0);
-  e.handle({ type: 'gift', user: 'u1', name: 'Satu', gift: 'Mawar', coins: 1 }, 1);
+  e.handle({ type: 'gift', user: 'u1', name: 'Satu', gift: 'Jari Hati', coins: 5 }, 1);
   let t = advanceTo(e, 'answer');
   e.handle({ type: 'comment', user: 'u1', name: 'Satu', text: letter(e.current.q.answer) }, t + 1000);
   e.handle({ type: 'comment', user: 'u2', name: 'Dua', text: letter(e.current.q.answer) }, t + 1000);
@@ -331,16 +353,16 @@ test('boost mengalikan poin jawaban benar dan habis setelah dipakai', () => {
   const [w1, w2] = e.view(t).winners;
   assert.equal(w1.mult, 2);
   assert.equal(w1.points, w2.points * 2);
-  assert.equal(e.players.get('u1').boost, null);
+  assert.deepEqual(e.players.get('u1').boost, { mult: 2, left: 1 });
 });
 
 test('gift besar menghentikan timer, jawaban saat berhenti tidak kehilangan bonus', () => {
   const e = make({ startWith: 'jupiter' });
   e.start(0);
   const t = advanceTo(e, 'answer');
-  e.handle({ type: 'gift', user: 'c', name: 'C', gift: 'Paus', coins: 500 }, t + 5000);
+  e.handle({ type: 'gift', user: 'c', name: 'C', gift: 'Donat', coins: 30 }, t + 5000);
   e.tick(t + 5000);
-  const big = DEFAULTS.giftTiers[2].ms;
+  const big = DEFAULTS.giftTiers.find((x) => x.min === 30).ms;
   const v = e.view(t + 6000);
   assert.ok(v.frozen);
   assert.equal(v.remaining, DEFAULTS.answerMs - 5000); // timer diam
@@ -351,7 +373,7 @@ test('gift besar menghentikan timer, jawaban saat berhenti tidak kehilangan bonu
   assert.equal(e.phaseEnd, t + DEFAULTS.answerMs + big);
 });
 
-test('gift sedang menambah jatah tebakan, tidak membuka pilihan untuk semua', () => {
+test('gift 10 koin ke atas menambah jatah tebakan, tidak membuka pilihan untuk semua', () => {
   const e = make({ startWith: 'jupiter' });
   e.start(0);
   const t = advanceTo(e, 'answer');
@@ -359,7 +381,7 @@ test('gift sedang menambah jatah tebakan, tidak membuka pilihan untuk semua', ()
   e.tick(t + 100);
   const v = e.view(t + 100);
   assert.equal(v.optionsShown, false);
-  assert.equal(v.spotlight.tries, DEFAULTS.giftTiers[1].tries);
+  assert.equal(v.spotlight.tries, 2);
   const q = e.current.q;
   const wrongs = q.options.map((_, i) => i).filter((i) => i !== q.answer);
   // Empat tebakan salah (lebih dari jatah biasa 3), lalu benar: tetap dihitung untuk pengirim gift.
@@ -374,25 +396,89 @@ test('gift sedang menambah jatah tebakan, tidak membuka pilihan untuk semua', ()
   assert.equal(e.current.answers.get('n').tries, DEFAULTS.maxTries);
 });
 
-test('gift sultan di tengah ronde jadi suara topik saat vote', () => {
-  const e = make({ generators: { negara: () => null, provinsi: () => null } });
+// Maju sampai fase tertentu (bisa melewati satu ronde penuh).
+function runTo(e, phase, t = 0) {
+  while (e.phase !== phase) {
+    t = Math.max(t, e.phaseEnd);
+    e.tick(t);
+  }
+  return t;
+}
+
+test('gift 100 koin: komentar topik pengirimnya melewati vote', () => {
+  const e = make();
   e.start(0);
-  const sultan = DEFAULTS.giftTiers[2];
   e.handle({ type: 'gift', user: 's', name: 'Sultan', gift: 'Paus', coins: 500 }, 10);
-  let t = 0;
-  while (e.phase !== 'vote') { t = Math.max(t, e.phaseEnd); e.tick(t); }
-  const [a, b] = e.view(t).vote.options;
-  for (let i = 0; i < 5; i++) e.handle({ type: 'comment', user: `x${i}`, text: a.keyword }, t + 10);
-  e.handle({ type: 'comment', user: 's', text: b.keyword }, t + 10);
-  e.handle({ type: 'comment', user: 's', text: b.keyword }, t + 20); // bonus tidak dihitung dua kali
-  assert.deepEqual(e.view(t + 20).vote.options.slice(0, 2).map((o) => o.votes), [5, 1 + sultan.vote]);
+  assert.equal(e.view(10).pick.name, 'Sultan');
+  // Komentar topik dari orang lain tidak dihitung sebagai pilihan.
+  e.handle({ type: 'comment', user: 'x', text: 'sejarah' }, 20);
+  assert.equal(e.view(20).pick.theme, null);
+  const target = e.pickable().some((t) => t.id === 'sejarah') ? 'sejarah' : 'olahraga';
+  e.handle({ type: 'comment', user: 's', text: `${target} dong kak` }, 30);
+  assert.equal(e.view(30).pick.theme.id, target);
+  assert.equal(e.view(30).toasts.at(-1).kind, 'pick');
+  let t = runTo(e, 'standings');
+  t = Math.max(t, e.phaseEnd);
+  e.tick(t);
+  assert.equal(e.phase, 'picked'); // vote dilewati
+  assert.equal(e.view(t).picked.name, 'Sultan');
+  assert.equal(e.view(t).picked.theme.id, target);
+  t = Math.max(t, e.phaseEnd);
+  e.tick(t);
+  assert.equal(e.phase, 'rules');
+  assert.equal(e.view(t).theme.id, target);
+  assert.equal(e.view(t).pick, undefined);
 });
 
-test('voting tema: suara terbanyak menang, gift menambah bobot', () => {
+test('gift 100 koin saat vote: komentar topiknya langsung menghentikan vote', () => {
+  const e = make();
+  e.start(0);
+  let t = runTo(e, 'vote');
+  e.handle({ type: 'comment', user: 'x1', text: 'A' }, t + 10);
+  e.handle({ type: 'gift', user: 's', name: 'Sultan', gift: 'Paus', coins: 100 }, t + 20);
+  const choice = e.pickable().find((x) => !e.vote.options.includes(x)); // boleh topik yang tidak ada di kartu
+  e.handle({ type: 'comment', user: 's', text: choice.label }, t + 30);
+  assert.equal(e.phase, 'picked');
+  assert.equal(e.nextTheme.id, choice.id);
+  t = Math.max(t, e.phaseEnd);
+  e.tick(t);
+  assert.equal(e.view(t).theme.id, choice.id);
+});
+
+test('hak pilih topik: pengirim pertama dulu, yang lain mengantre, yang tidak dipakai gugur', () => {
+  const e = make();
+  e.start(0);
+  e.handle({ type: 'gift', user: 'a', name: 'A', gift: 'Paus', coins: 100 }, 10);
+  e.handle({ type: 'gift', user: 'b', name: 'B', gift: 'Paus', coins: 100 }, 11);
+  e.handle({ type: 'gift', user: 'a', name: 'A', gift: 'Paus', coins: 100 }, 12); // hak A belum dipakai: tidak dobel
+  assert.deepEqual(e.picks.map((p) => p.user), ['a', 'b']);
+  e.handle({ type: 'comment', user: 'b', text: 'sejarah' }, 20); // bukan gilirannya
+  assert.equal(e.picks[1].theme, null);
+  // A tidak pernah memilih: haknya gugur setelah dua vote, lalu giliran B.
+  let t = 0;
+  for (let i = 0; i < 2; i++) {
+    t = runTo(e, 'vote', t);
+    assert.equal(e.view(t).pick.name, 'A');
+    t = runTo(e, 'rules', t);
+  }
+  t = runTo(e, 'vote', t);
+  assert.equal(e.view(t).pick.name, 'B');
+});
+
+test('saat menjawab, jawaban soal didahulukan dari pilihan topik', () => {
+  const e = make({ startWith: 'jupiter' });
+  e.start(0);
+  e.handle({ type: 'gift', user: 's', name: 'S', gift: 'Paus', coins: 100 }, 1);
+  const t = advanceTo(e, 'answer');
+  e.handle({ type: 'comment', user: 's', name: 'S', text: 'jupiter' }, t + 100);
+  assert.equal(e.current.answers.get('s').choice, e.current.q.options.indexOf('Jupiter'));
+  assert.equal(e.picks[0].theme, null);
+});
+
+test('voting tema: satu orang satu suara, gift tidak menambah bobot', () => {
   const e = make({ generators: { negara: () => null, provinsi: () => null } });
   e.start(0);
-  let t = 0;
-  while (e.phase !== 'vote') { t = Math.max(t, e.phaseEnd); e.tick(t); }
+  let t = runTo(e, 'vote');
   const v = e.view(t).vote;
   assert.equal(v.options.length, 4);
   assert.ok(!v.options.some((o) => o.id === 'campuran')); // tema ronde ini tidak ditawarkan lagi
@@ -401,12 +487,68 @@ test('voting tema: suara terbanyak menang, gift menambah bobot', () => {
   e.handle({ type: 'comment', user: 'x1', text: a.keyword }, t + 10);
   e.handle({ type: 'comment', user: 'x2', text: a.keyword }, t + 10);
   e.handle({ type: 'comment', user: 'x3', text: b.label.toUpperCase() }, t + 10);
-  e.handle({ type: 'gift', user: 'x3', name: 'X3', gift: 'Mawar', coins: 1 }, t + 20);
-  assert.deepEqual(e.view(t + 20).vote.options.slice(0, 2).map((o) => o.votes), [2, 1 + DEFAULTS.giftTiers[0].vote]);
+  e.handle({ type: 'comment', user: 'x4', text: b.keyword }, t + 10);
+  e.handle({ type: 'comment', user: 'x5', text: b.keyword }, t + 10);
+  e.handle({ type: 'gift', user: 'x1', name: 'X1', gift: 'Mawar', coins: 20 }, t + 20);
+  assert.deepEqual(e.view(t + 20).vote.options.slice(0, 2).map((o) => o.votes), [2, 3]);
   t = Math.max(t, e.phaseEnd);
   e.tick(t);
   assert.equal(e.phase, 'rules');
   assert.equal(e.view(t).theme.id, b.id);
+});
+
+test('vote: komentar yang menyebut dua topik dihitung ke topik pertama', () => {
+  const pick = (ids) => ids.map((id) => THEMES.find((t) => t.id === id));
+  const m = topicMatcher(pick(['musik', 'inggris', 'anime', 'umum']));
+  assert.equal(matchTopic('musik inggris', m), 0);
+  assert.equal(matchTopic('inggris aja deh, atau musik', m), 1);
+  assert.equal(matchTopic('lagu indo', m), 0);
+  assert.equal(matchTopic('vote anime kak', m), 2);
+  assert.equal(matchTopic('halo kak', m), null);
+  const m2 = topicMatcher(pick(['musik', 'barat', 'inggris', 'sains']));
+  assert.equal(matchTopic('lagu inggris', m2), 1); // lagu berbahasa Inggris = Musik Barat
+  assert.equal(matchTopic('musik barat', m2), 1);
+  assert.equal(matchTopic('bahasa inggris', m2), 2);
+  assert.equal(matchTopic('sains bola', topicMatcher(pick(['sains', 'bola', 'olahraga', 'bendera']))), 0);
+});
+
+test('tiap kelipatan like tema tampilan berganti gelap dan terang', () => {
+  const e = make({ config: { themeLikes: 1000 } });
+  e.start(0);
+  assert.equal(e.view(0).look.light, false);
+  for (let i = 0; i < 9; i++) e.handle({ type: 'like', count: 100 }, 10 + i);
+  assert.equal(e.view(20).look.n, 0);
+  e.handle({ type: 'like', count: 150 }, 30);
+  assert.deepEqual([e.view(40).look.light, e.view(40).look.n, e.view(40).look.age], [true, 1, 10]);
+  for (let i = 0; i < 10; i++) e.handle({ type: 'like', count: 100 }, 50 + i);
+  assert.equal(e.view(60).look.light, false); // 2.000 like: kembali gelap
+  assert.equal(e.view(60).look.likes, 2000);
+});
+
+test('soal jebakan yang belum tampil dibuka paling depan', () => {
+  for (const theme of THEMES.filter((t) => t.cats)) {
+    const traps = QUESTIONS.filter((q) => q.jebakan && theme.cats.includes(q.cat));
+    if (!traps.length) continue;
+    const e = make({ theme: theme.id });
+    e.start(0);
+    const flags = e.questions.map((q) => !!q.jebakan);
+    const n = flags.filter(Boolean).length;
+    assert.ok(n >= Math.min(traps.length, 3), `${theme.id}: cuma ${n} soal jebakan di ronde pertama`);
+    assert.deepEqual(flags.slice(0, n), Array(n).fill(true), `${theme.id}: soal jebakan tidak di depan`);
+  }
+});
+
+test('topik MTK: soal acak dari generator, ditambah soal jebakan tetap', () => {
+  const e = make({ theme: 'mtk' });
+  e.start(0);
+  assert.equal(e.questions.length, 10);
+  assert.ok(e.questions.some((q) => q.gen === 'mtk'));
+  for (let r = 0; r < 5; r++) {
+    e.nextTheme = e.themes.find((t) => t.id === 'mtk');
+    e.newRound(0);
+    assert.equal(new Set(e.questions.map((q) => q.id)).size, 10);
+  }
+  assert.ok(![...e.used.keys()].some((id) => id.startsWith('mtk-'))); // soal acak tidak memenuhi catatan rotasi
 });
 
 test('ronde bertema mengambil soal dari kategorinya', () => {

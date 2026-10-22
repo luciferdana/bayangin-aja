@@ -6,9 +6,11 @@
   --ink: #050608;
   --paper: #f2efe8;
   --muted: #9c978c;
-  --hair: rgba(242, 239, 232, 0.2);
-  --hair-strong: rgba(242, 239, 232, 0.42);
+  --hair: rgba(var(--paper-rgb), 0.2);
+  --hair-strong: rgba(var(--paper-rgb), 0.42);
   --signal: #ff5b23;
+  --ink-rgb: 5, 6, 8;
+  --paper-rgb: 242, 239, 232;
   --cond: 'Archivo', 'Arial Narrow', sans-serif;
   --mono: 'JetBrains Mono', ui-monospace, monospace;
 }
@@ -17,16 +19,18 @@
 html, body { height: 100%; overflow: hidden; background: var(--ink); }
 body { color: var(--paper); font-family: var(--cond); }
 
-#stage { position: absolute; left: 0; top: 0; width: 1080px; height: 1920px; overflow: hidden; transform-origin: 0 0; background: var(--ink); }
+#stage { position: absolute; left: 0; top: 0; width: 1080px; height: 1920px; overflow: hidden; transform-origin: 0 0; background: var(--ink); color: var(--paper); }
+/* Warna teks dihitung ulang di dalam #spot dan #look supaya ikut palet gelapnya sendiri di tema terang. */
+#spot, #look { color: var(--paper); }
 #globe { position: absolute; inset: 0; width: 1080px; height: 1920px; }
 .scrim { position: absolute; inset: 0; pointer-events: none; }
 .scrim.heavy {
-  background: linear-gradient(to bottom, rgba(5, 6, 8, 0.55) 0, rgba(5, 6, 8, 0.9) 260px, rgba(5, 6, 8, 0.86) 900px,
-    rgba(5, 6, 8, 0.55) 1300px, rgba(5, 6, 8, 0.2) 1600px, rgba(5, 6, 8, 0.5) 1920px);
+  background: linear-gradient(to bottom, rgba(var(--ink-rgb), 0.55) 0, rgba(var(--ink-rgb), 0.9) 260px, rgba(var(--ink-rgb), 0.86) 900px,
+    rgba(var(--ink-rgb), 0.55) 1300px, rgba(var(--ink-rgb), 0.2) 1600px, rgba(var(--ink-rgb), 0.5) 1920px);
 }
 .scrim.light {
-  background: linear-gradient(to bottom, rgba(5, 6, 8, 0.6) 0, rgba(5, 6, 8, 0.7) 300px, rgba(5, 6, 8, 0.35) 760px,
-    rgba(5, 6, 8, 0.1) 1200px, rgba(5, 6, 8, 0.45) 1920px);
+  background: linear-gradient(to bottom, rgba(var(--ink-rgb), 0.6) 0, rgba(var(--ink-rgb), 0.7) 300px, rgba(var(--ink-rgb), 0.35) 760px,
+    rgba(var(--ink-rgb), 0.1) 1200px, rgba(var(--ink-rgb), 0.45) 1920px);
 }
 .grain {
   position: absolute; inset: 0; opacity: 0.07; mix-blend-mode: overlay; pointer-events: none;
@@ -63,6 +67,14 @@ body { color: var(--paper); font-family: var(--cond); }
 .cat { top: 300px; display: flex; gap: 22px; align-items: center; font-size: 19px; color: var(--muted); }
 .cat .sq { width: 12px; height: 12px; background: var(--signal); }
 .cat b { color: var(--paper); font-weight: 600; }
+.tapgoal { top: 296px; left: auto; display: flex; flex-direction: column; align-items: flex-end; gap: 5px; font-size: 15px; line-height: 1; color: var(--muted); transform-origin: 100% 50%; }
+.tapgoal .tbar { display: flex; align-items: center; gap: 12px; }
+.tapgoal b { color: var(--paper); font-size: 22px; }
+.tseg { display: grid; grid-template-columns: repeat(10, 14px); gap: 3px; height: 14px; }
+.tseg i { background: var(--hair); }
+.tseg i.on { background: var(--paper); }
+.tapgoal.near, .tapgoal.near b { color: var(--signal); }
+.tapgoal.near .tseg i.on { background: var(--signal); }
 
 /* Soal */
 .question { top: 344px; height: 290px; font-size: 70px; line-height: 1.04; font-weight: 760; font-stretch: 84%; text-wrap: balance; }
@@ -111,7 +123,7 @@ body { color: var(--paper); font-family: var(--cond); }
 .rev-note { top: 248px; height: 40px; display: flex; align-items: center; gap: 16px; font-size: 19px; color: var(--muted); }
 .rev-note .line { flex: 1; height: 1px; background: var(--hair-strong); transform-origin: 0 50%; }
 .qsmall { top: 344px; font-size: 36px; line-height: 1.15; font-weight: 600; font-stretch: 88%; color: var(--muted); }
-.mapbox { top: 430px; height: 270px; border: 1px solid var(--hair-strong); background: rgba(5, 6, 8, 0.6); overflow: hidden; }
+.mapbox { top: 430px; height: 270px; border: 1px solid var(--hair-strong); background: rgba(var(--ink-rgb), 0.6); overflow: hidden; }
 .mapbox canvas { display: block; width: 100%; height: 100%; }
 .mapbox .coord { position: absolute; left: 18px; bottom: 14px; font-size: 16px; color: var(--muted); }
 .mapbox .tag { position: absolute; right: 18px; top: 14px; font-size: 16px; color: var(--muted); }
@@ -145,7 +157,7 @@ body { color: var(--paper); font-family: var(--cond); }
 
 /* ---- Tercepat benar ---- */
 .cards { top: 404px; display: flex; flex-direction: column; gap: 16px; }
-.card { height: 136px; display: flex; align-items: center; gap: 26px; padding: 0 26px 0 22px; background: rgba(5, 6, 8, 0.72); border: 1px solid var(--hair-strong); }
+.card { height: 136px; display: flex; align-items: center; gap: 26px; padding: 0 26px 0 22px; background: rgba(var(--ink-rgb), 0.72); border: 1px solid var(--hair-strong); }
 .card:first-child { border-color: var(--paper); border-left: 6px solid var(--signal); }
 .card .r { font-family: var(--mono); font-size: 28px; font-weight: 700; color: var(--muted); width: 44px; }
 .card:first-child .r { color: var(--signal); }
@@ -178,7 +190,7 @@ body { color: var(--paper); font-family: var(--cond); }
 .board { overflow: hidden; }
 .board .scan { position: absolute; left: 0; right: 0; top: -140px; height: calc(100% + 140px); pointer-events: none; }
 .board .scan::before { content: ''; position: absolute; left: 0; right: 0; top: 0; height: 140px;
-  background: linear-gradient(to bottom, rgba(242, 239, 232, 0), rgba(242, 239, 232, 0.07), rgba(242, 239, 232, 0)); }
+  background: linear-gradient(to bottom, rgba(var(--paper-rgb), 0), rgba(var(--paper-rgb), 0.07), rgba(var(--paper-rgb), 0)); }
 .board.dense li { height: 68px; grid-template-columns: 64px 70px 1fr auto 140px; }
 .board.dense .av { width: 52px; height: 52px; }
 .board.dense .av .ini { font-size: 20px; }
@@ -199,8 +211,8 @@ body { color: var(--paper); font-family: var(--cond); }
 .pcol .n { margin-top: 18px; font-size: 40px; font-weight: 720; font-stretch: 86%; max-width: 290px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
 .pcol.first .n { font-size: 50px; }
 .pcol .s { margin-top: 6px; font-family: var(--mono); font-size: 24px; color: var(--muted); }
-.pcol .ped { margin-top: 22px; width: 100%; border: 1px solid var(--hair-strong); border-bottom: none; background: rgba(242, 239, 232, 0.06); display: flex; justify-content: center; transform-origin: 50% 100%; }
-.pcol.first .ped { border-top: 6px solid var(--signal); background: rgba(242, 239, 232, 0.1); }
+.pcol .ped { margin-top: 22px; width: 100%; border: 1px solid var(--hair-strong); border-bottom: none; background: rgba(var(--paper-rgb), 0.06); display: flex; justify-content: center; transform-origin: 50% 100%; }
+.pcol.first .ped { border-top: 6px solid var(--signal); background: rgba(var(--paper-rgb), 0.1); }
 .pcol .ped span { font-size: 150px; font-weight: 850; font-stretch: 62%; line-height: 1.1; color: var(--hair-strong); }
 .pcol.first .ped span { color: var(--paper); }
 .pcol .crown { margin-bottom: 14px; font-family: var(--mono); font-size: 18px; font-weight: 700; letter-spacing: 0.16em; padding: 6px 12px; background: var(--signal); color: var(--ink); }
@@ -234,8 +246,8 @@ body { color: var(--paper); font-family: var(--cond); }
 
 /* ---- Voting tema ---- */
 .votes { top: 404px; list-style: none; display: flex; flex-direction: column; gap: 16px; }
-.vrow { position: relative; height: 140px; display: flex; align-items: center; justify-content: space-between; padding: 0 32px; border: 1px solid var(--hair-strong); background: rgba(5, 6, 8, 0.6); overflow: hidden; }
-.vrow .vbar { position: absolute; left: 0; top: 0; bottom: 0; width: 100%; background: rgba(242, 239, 232, 0.1); transform-origin: 0 50%; transform: scaleX(0); }
+.vrow { position: relative; height: 140px; display: flex; align-items: center; justify-content: space-between; padding: 0 32px; border: 1px solid var(--hair-strong); background: rgba(var(--ink-rgb), 0.6); overflow: hidden; }
+.vrow .vbar { position: absolute; left: 0; top: 0; bottom: 0; width: 100%; background: rgba(var(--paper-rgb), 0.1); transform-origin: 0 50%; transform: scaleX(0); }
 .vrow.lead { border-color: var(--paper); border-left: 6px solid var(--signal); }
 .vrow.lead .vbar { background: rgba(255, 91, 35, 0.22); }
 .vrow .vw { position: relative; display: flex; flex-direction: column; gap: 6px; }
@@ -245,7 +257,7 @@ body { color: var(--paper); font-family: var(--cond); }
 
 /* ---- Zona bawah: klasemen live mini (di bawah area kuis, di atas kolom komentar) ---- */
 #lower { position: absolute; left: 0; right: 0; top: 1160px; height: 640px; pointer-events: none; }
-.lower { position: absolute; inset: 0; padding: 0 64px; background: linear-gradient(to bottom, rgba(5, 6, 8, 0) 0, rgba(5, 6, 8, 0.6) 30px, rgba(5, 6, 8, 0.6) 600px, rgba(5, 6, 8, 0) 640px); }
+.lower { position: absolute; inset: 0; padding: 0 64px; background: linear-gradient(to bottom, rgba(var(--ink-rgb), 0) 0, rgba(var(--ink-rgb), 0.6) 30px, rgba(var(--ink-rgb), 0.6) 600px, rgba(var(--ink-rgb), 0) 640px); }
 .lsec.round { margin-top: 14px; }
 .lsec.round .chips5 { padding-top: 10px; }
 .lsec.round .c5n { font-size: 14px; }
@@ -270,7 +282,7 @@ body { color: var(--paper); font-family: var(--cond); }
   mask-image: linear-gradient(to right, transparent 0, #000 40px, #000 calc(100% - 40px), transparent 100%); }
 .gtrack { position: absolute; left: 0; top: 0; display: flex; gap: 14px; }
 .gcard { position: relative; flex: none; width: 358px; height: 96px; display: flex; align-items: center; gap: 18px; padding: 0 18px 0 16px;
-  background: rgba(5, 6, 8, 0.85); border: 1px solid var(--hair-strong); overflow: hidden; }
+  background: rgba(var(--ink-rgb), 0.85); border: 1px solid var(--hair-strong); overflow: hidden; }
 .gcard.besar { border-color: var(--paper); border-left: 6px solid var(--signal); }
 .gstripes { position: absolute; inset: 0; opacity: 0.1; background: repeating-linear-gradient(-45deg, var(--signal) 0 14px, transparent 14px 28px); background-size: 56px 56px; }
 .gx { position: relative; flex: none; width: 74px; display: flex; flex-direction: column; align-items: center; }
@@ -289,7 +301,7 @@ body { color: var(--paper); font-family: var(--cond); }
   background: var(--paper); color: var(--ink); }
 .pr-tag span { font-size: 13px; font-weight: 700; letter-spacing: 0.16em; color: #6b665c; }
 .pr-tag b { font-size: 40px; font-weight: 850; font-stretch: 64%; line-height: 0.92; white-space: nowrap; }
-.pr-slot { position: relative; flex: 1; min-width: 0; overflow: hidden; background: rgba(5, 6, 8, 0.94);
+.pr-slot { position: relative; flex: 1; min-width: 0; overflow: hidden; background: rgba(var(--ink-rgb), 0.94);
   border-top: 1px solid var(--hair-strong); border-bottom: 1px solid var(--hair-strong); }
 .pr-top { position: absolute; left: 24px; right: 24px; top: 14px; display: flex; justify-content: space-between; font-size: 13px; color: var(--muted); }
 .pr-top span:last-child { color: var(--paper); }
@@ -396,7 +408,7 @@ body { color: var(--paper); font-family: var(--cond); }
 .st-photo .gc-ph .ini { font-size: 260px; color: var(--ink); mix-blend-mode: multiply; }
 .st-photo .gc-ph img { filter: grayscale(1) contrast(1.35) brightness(1.08); mix-blend-mode: multiply; }
 .st-photo .dots { position: absolute; inset: 0; opacity: 0.45; mix-blend-mode: multiply;
-  background-image: radial-gradient(rgba(5, 6, 8, 0.7) 1.8px, transparent 2.3px); background-size: 10px 10px; }
+  background-image: radial-gradient(rgba(var(--ink-rgb), 0.7) 1.8px, transparent 2.3px); background-size: 10px 10px; }
 .st-big { position: absolute; left: 56px; right: 56px; top: 470px; text-align: center; font-weight: 900; font-stretch: 58%;
   line-height: 0.8; white-space: nowrap; transform-origin: 50% 50%; }
 .st-s3 { font-size: 900px; color: var(--signal); }
@@ -432,7 +444,7 @@ body { color: var(--paper); font-family: var(--cond); }
 .vhand { top: 420px; height: 400px; }
 .pcard { position: absolute; top: 0; width: 222px; height: 330px; border-radius: 14px; background: var(--paper); color: var(--ink);
   box-shadow: 0 18px 40px rgba(0, 0, 0, 0.55); transform-origin: 50% 100%; }
-.pcard .pc-frame { position: absolute; inset: 10px; border: 1px solid rgba(5, 6, 8, 0.22); border-radius: 8px; }
+.pcard .pc-frame { position: absolute; inset: 10px; border: 1px solid rgba(var(--ink-rgb), 0.22); border-radius: 8px; }
 .pcard .pc-corner { position: absolute; display: flex; flex-direction: column; align-items: center; gap: 2px;
   color: color-mix(in srgb, var(--tc) 70%, #000); }
 .pcard .pc-corner b { font-size: 38px; font-weight: 850; font-stretch: 70%; line-height: 0.9; }
@@ -465,5 +477,113 @@ body { color: var(--paper); font-family: var(--cond); }
 .topic-badge .tb-text b { font-size: 32px; font-weight: 850; font-stretch: 68%; line-height: 1; max-width: 300px; }
 
 /* ---- Tebak bendera ---- */
-.mapbox.flagq { display: grid; place-items: center; background: rgba(5, 6, 8, 0.75); }
+.mapbox.flagq { display: grid; place-items: center; background: rgba(var(--ink-rgb), 0.75); }
 .mapbox.flagq .flag { height: 270px; width: auto; max-width: 90%; box-shadow: 0 10px 40px rgba(0, 0, 0, 0.6); outline: 1px solid var(--hair-strong); }
+
+/* ---- Strip sultan: hak pilih topik ---- */
+.st-s3p { top: 1380px; background: var(--paper); color: var(--ink); }
+.st-s3p b { font-size: 48px; }
+
+/* ---- Info bonus pendukung (layar jeda dan pilih topik): tangga lima tingkat ----
+   Makin ke kanan makin tinggi dan makin panas warnanya. Hanya di jeda, nadanya informatif. */
+.perks { height: 218px; }
+.pk-top { display: flex; justify-content: space-between; align-items: baseline; height: 30px; font-size: 15px; color: var(--muted); }
+.pk-top b { color: var(--paper); font-size: 17px; }
+.pk-stair { position: relative; height: 188px; display: grid; grid-template-columns: repeat(5, 1fr); gap: 8px; align-items: end; overflow: hidden; }
+.pk-step { position: relative; display: flex; flex-direction: column; justify-content: flex-end; gap: 4px; padding: 0 14px 12px;
+  transform-origin: 50% 100%; overflow: hidden; border: 1px solid var(--hair-strong); background: rgba(var(--ink-rgb), 0.82); }
+.pk-coin { position: absolute; left: 14px; top: 12px; font-size: 14px; font-weight: 700; color: var(--muted); }
+.pk-x { font-size: 72px; font-weight: 850; font-stretch: 60%; line-height: 0.82; transform-origin: 0 100%; }
+.pk-tag { font-size: 12px; font-weight: 700; letter-spacing: 0.08em; white-space: nowrap; transform-origin: 0 50%; }
+.pk-step.s2 { background: rgba(var(--paper-rgb), 0.12); }
+.pk-step.s3 { background: var(--paper); color: var(--ink); border-color: var(--paper); }
+.pk-step.s3 .pk-coin { color: rgba(var(--ink-rgb), 0.6); }
+.pk-step.s4 { background: var(--signal); color: #050608; border-color: var(--signal); }
+.pk-step.s4 .pk-coin { color: rgba(5, 6, 8, 0.65); }
+.pk-step.s5 { background: var(--signal); color: #050608; border: 3px solid var(--paper); }
+.pk-step.s5::before { content: ""; position: absolute; inset: 0; opacity: 0.16;
+  background: repeating-linear-gradient(-45deg, #050608 0 10px, transparent 10px 22px); }
+.pk-step.s5 .pk-coin { color: rgba(5, 6, 8, 0.7); }
+.pk-step.s5 .pk-tag { align-self: flex-start; padding: 3px 7px; background: #050608; color: #ff5b23; }
+.pk-step > * { position: relative; }
+.pk-glint { position: absolute; top: -20px; bottom: -20px; left: 0; width: 120px; pointer-events: none; mix-blend-mode: overlay;
+  background: linear-gradient(to right, rgba(255, 255, 255, 0), rgba(255, 255, 255, 0.55), rgba(255, 255, 255, 0)); }
+
+/* ---- Vote: hak pilih topik pengirim gift sultan ---- */
+.pick-note { top: 984px; height: 86px; display: flex; align-items: center; gap: 16px; padding: 0 18px 0 0;
+  background: var(--paper); color: var(--ink); overflow: hidden; }
+.pick-note .pn-tag { align-self: stretch; display: flex; align-items: center; padding: 0 16px; background: var(--signal); color: #050608;
+  font-size: 16px; font-weight: 700; letter-spacing: 0.14em; }
+.pick-note .av { border-color: var(--ink); }
+.pick-note .pn-tx { min-width: 0; display: flex; flex-direction: column; gap: 4px; }
+.pick-note .pn-tx b { font-size: 38px; font-weight: 850; font-stretch: 66%; line-height: 1; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.pick-note .pn-tx span { font-size: 14px; color: rgba(var(--ink-rgb), 0.7); white-space: nowrap; }
+
+/* ---- Topik pilihan sultan: kartu dibalik, dibanting, dicap ---- */
+.pk-table { top: 420px; height: 640px; }
+.pk-table .pcard { top: 270px; }
+.pcard.back, .pcard .pc-back { background-color: #050608; border: 3px solid #f2efe8;
+  background-image: repeating-linear-gradient(45deg, rgba(242, 239, 232, 0.1) 0 8px, transparent 8px 18px); }
+.pcard .pc-back, .pcard .pc-front { position: absolute; inset: 0; border-radius: 14px; }
+.pcard .pc-back .pc-frame, .pcard.back .pc-frame { border-color: #ff5b23; }
+.pcard.chosen { z-index: 3; }
+.pk-rays { position: absolute; left: 50%; top: 345px; width: 1100px; height: 1100px; margin: -550px 0 0 -550px; border-radius: 50%; opacity: 0;
+  background: repeating-conic-gradient(from 0deg, color-mix(in srgb, var(--tc) 55%, transparent) 0 8deg, transparent 8deg 22deg);
+  -webkit-mask-image: radial-gradient(closest-side, #000 18%, transparent 100%); mask-image: radial-gradient(closest-side, #000 18%, transparent 100%); }
+.pk-stamp { position: absolute; left: 50%; top: 520px; z-index: 5; display: flex; align-items: center; gap: 16px;
+  padding: 14px 26px 14px 14px; margin-left: -300px; width: 600px; background: #050608; border: 5px solid #ff5b23;
+  box-shadow: 0 16px 40px rgba(0, 0, 0, 0.5); transform-origin: 50% 50%; }
+.pk-stamp .av { border-color: #ff5b23; }
+.pk-stamp .ps-tx { min-width: 0; flex: 1; display: flex; flex-direction: column; gap: 4px; }
+.pk-stamp .ps-tx span { font-size: 16px; font-weight: 700; color: #ff5b23; }
+.pk-stamp .ps-tx b { font-size: 54px; font-weight: 850; font-stretch: 64%; line-height: 1; white-space: nowrap; overflow: hidden; color: #f2efe8; }
+
+/* ---- Ganti tema tiap kelipatan like: tiga balok diagonal + angka tap tap ---- */
+#look { position: absolute; inset: 0; pointer-events: none; }
+.lk { position: absolute; inset: 0; visibility: hidden; }
+.lk-band { position: absolute; inset: 0; clip-path: polygon(0 0, 0 0, 0 100%, 0 100%); }
+.lk-band.b3 { background: #050608; }
+.lk-band.b2 { background: #f2efe8; }
+.lk-band.b1 { background: #ff5b23; }
+.lk-mid { position: absolute; left: 0; right: 0; top: 560px; display: flex; flex-direction: column; align-items: center; }
+.lk-num { position: absolute; top: 0; left: 0; right: 0; text-align: center; font-size: 330px; font-weight: 900; font-stretch: 58%;
+  line-height: 0.82; color: #050608; letter-spacing: -0.01em; transform-origin: 50% 50%; }
+.lk-num.echo { color: transparent; -webkit-text-stroke: 4px #f2efe8; }
+.lk-tap { margin-top: 300px; padding: 6px 28px; background: #050608; color: #f2efe8; font-size: 150px; font-weight: 900; font-stretch: 58%; line-height: 0.95; }
+.lk-strip { margin-top: 26px; display: flex; align-items: center; gap: 18px; padding: 16px 26px; background: #f2efe8; color: #050608; font-size: 26px; font-weight: 700; }
+.lk-strip .lk-from { color: #6b665c; text-decoration: line-through; text-decoration-thickness: 3px; }
+.lk-strip .lk-arrow { font-size: 30px; }
+.lk-strip b { font-family: var(--cond); font-size: 46px; font-weight: 900; font-stretch: 62%; letter-spacing: 0; color: #ff5b23; }
+
+/* ---- Tema terang (setiap kelipatan ganjil 10.000 like) ----
+   Variabel warna dibalik: --ink jadi latar krem terang, --paper jadi tinta gelap. Turunan warna
+   (--hair) ikut ditulis ulang karena nilainya dihitung di tempat variabel itu dideklarasikan. */
+#stage.terang {
+  --ink: #f4f0e7;
+  --paper: #111215;
+  --muted: #5e594f;
+  --signal: #f04a12;
+  --ink-rgb: 244, 240, 231;
+  --paper-rgb: 17, 18, 21;
+  --hair: rgba(17, 18, 21, 0.18);
+  --hair-strong: rgba(17, 18, 21, 0.38);
+}
+#stage.terang .grain { opacity: 0.05; mix-blend-mode: multiply; }
+#stage.terang .av { background: #d9d2c4; }
+#stage.terang .mapbox { background: rgba(5, 6, 8, 0.8); }
+/* Kartu topik, lencana, dan catatan hak sultan: kertas putih bersih supaya menonjol di latar krem */
+#stage.terang .pcard, #stage.terang .topic-badge, #stage.terang .pick-note { --paper: #ffffff; --ink: #050608; --ink-rgb: 5, 6, 8; }
+#stage.terang .pcard { box-shadow: 0 0 0 1px rgba(5, 6, 8, 0.12), 0 18px 40px rgba(60, 50, 30, 0.28); }
+#stage.terang .pcard.lead { box-shadow: 0 0 0 4px var(--signal), 0 26px 50px rgba(60, 50, 30, 0.35); }
+/* Sorotan gift, banner promosi, dan sapuan ganti tema tetap memakai palet gelap aslinya */
+#stage.terang #spot, #stage.terang .promo, #stage.terang #look {
+  --ink: #050608;
+  --paper: #f2efe8;
+  --muted: #9c978c;
+  --signal: #ff5b23;
+  --ink-rgb: 5, 6, 8;
+  --paper-rgb: 242, 239, 232;
+  --hair: rgba(242, 239, 232, 0.2);
+  --hair-strong: rgba(242, 239, 232, 0.42);
+  color: var(--paper);
+}

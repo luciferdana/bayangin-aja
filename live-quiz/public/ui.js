@@ -8,10 +8,13 @@ import { VOTE_KEYS } from './engine.js';
 const clamp = (x) => Math.max(0, Math.min(1, x));
 const ease = (x) => 1 - (1 - x) ** 3;
 const prog = (ms, start, dur) => ease(clamp((ms - start) / dur));
+const smooth = (x) => x * x * (3 - 2 * x); // ease in-out
 const pad = (n) => String(n).padStart(2, '0');
 const secs = (ms) => `00:${pad(Math.max(0, Math.ceil(ms / 1000)))}`;
 const fmtSec = (ms) => `${(ms / 1000).toFixed(1).replace('.', ',')} DTK`;
 const DIFF_LABEL = { mudah: 'MUDAH', sedang: 'SEDANG', sulit: 'SULIT' };
+// Pengali boost bisa pecahan (1,5 dan 2,5): koma desimal Indonesia.
+const xm = (m) => String(m).replace('.', ',');
 
 function el(tag, cls, text) {
   const n = document.createElement(tag);
@@ -247,7 +250,17 @@ function answer(v, ctx) {
   assist.append(el('span', '', 'BUKA PILIHAN'), seg, alabel);
   if (two) assist.style.display = 'none';
 
-  root.append(head(v), ruler, cat, question, ...(shapeBox ? [shapeBox] : []), list, foot, assist);
+  // Target tap tap ganti tema: di kanan baris kategori, selalu terlihat dan tidak ketutup komentar.
+  const tap = el('div', 'ui tapgoal mono');
+  const tapSeg = el('div', 'tseg');
+  const tapSegs = Array.from({ length: 10 }, () => tapSeg.appendChild(el('i')));
+  const tapNum = el('b');
+  const tapNext = el('span');
+  const tapBar = el('div', 'tbar');
+  tapBar.append(tapSeg, tapNum);
+  tap.append(tapNext, tapBar);
+
+  root.append(head(v), ruler, cat, tap, question, ...(shapeBox ? [shapeBox] : []), list, foot, assist);
   let stackKey = '';
   let lastSec = null;
   let openAt = v.optionsShown ? 0 : null; // waktu fase saat pilihan terbuka
@@ -263,6 +276,17 @@ function answer(v, ctx) {
       const t = v.elapsed;
       rise(ruler, prog(t, 0, 300), 10);
       rise(cat, prog(t, 80, 400));
+      // Progres ke pergantian tema berikutnya; 10% terakhir menyala oranye dan berdenyut.
+      const L = v.look;
+      const goal = (L.n + 1) * L.every;
+      const part = clamp((v.totalLikes - L.n * L.every) / L.every);
+      const near = part >= 0.9;
+      tapSegs.forEach((s, i) => s.classList.toggle('on', i < Math.floor(part * 10)));
+      tapNext.textContent = `TAP TAP · GANTI TEMA ${L.light ? 'GELAP' : 'TERANG'}`;
+      tapNum.textContent = `${v.totalLikes.toLocaleString('id-ID')}/${goal.toLocaleString('id-ID')}`;
+      tap.classList.toggle('near', near);
+      tap.style.opacity = prog(t, 80, 400);
+      tap.style.transform = near ? `scale(${1 + 0.04 * Math.exp(-(t % 600) / 150)})` : '';
       words.forEach((w, i) => rise(w, prog(t, 120 + i * 35, 420), 22));
       if (shapeBox) rise(shapeBox, prog(t, 200, 500), 16);
       const shown = v.optionsShown;
@@ -420,7 +444,7 @@ function winners(v) {
     const meta = el('div', 'meta mono');
     meta.append(el('span', '', fmtSec(w.ms)));
     if (w.streak >= v.rules.streakFrom) meta.append(el('span', 'streak', `${w.streak}X BERUNTUN`));
-    if (w.mult > 1) meta.append(el('span', 'streak', `BOOST x${w.mult}`));
+    if (w.mult > 1) meta.append(el('span', 'streak', `BOOST x${xm(w.mult)}`));
     who.append(el('div', 'n', w.name), meta);
     const pts = el('div', 'pts', '+0');
     c.append(el('span', 'r', pad(i + 1)), avatar(w, 96), who, pts);
@@ -492,7 +516,7 @@ function leaderboard(v, { titleParts, subText, entries, dense, nextLabel, fans =
       const li = el('li');
       const s = el('span', 's', '0');
       const c = el('span', 'c', `${e.correct} BENAR`);
-      if (e.boost > 1) c.prepend(el('span', 'boost', `x${e.boost}`), ' ');
+      if (e.boost > 1) c.prepend(el('span', 'boost', `x${xm(e.boost)}`), ' ');
       li.append(el('span', 'r', pad(i + 1)), avatar(e, dense ? 52 : 72), el('span', 'n', e.name), c, s);
       list.append(li);
       return { li, s, score: e.score };
@@ -522,16 +546,22 @@ function leaderboard(v, { titleParts, subText, entries, dense, nextLabel, fans =
     fanBox.append(ft, row);
     parts.push(fanBox);
   }
-  // Banner promosi di layar jeda, di bawah pendukung live kalau ada.
+  // Slot bawah layar jeda (di bawah pendukung live kalau ada): info bonus pendukung dulu,
+  // lalu disapu keluar dan diganti banner promosi.
+  const slotTop = fanBox ? 1330 : 1190;
+  const perks = perkPanel(v.rules.giftTiers);
+  perks.node.style.top = `${slotTop}px`;
   const promo = promoBanner(true);
   promo.node.classList.add('ui');
-  promo.node.style.top = fanBox ? '1330px' : '1190px';
-  parts.push(promo.node);
+  promo.node.style.top = `${slotTop}px`;
+  parts.push(perks.node, promo.node);
   root.append(...parts);
   const stagger = dense ? 110 : 160;
+  const perkAt = fanBox ? 2000 : 1600;
+  const swapAt = perkAt + PERK_SHOW;
   return {
     node: root,
-    cues: [{ at: 0, name: 'title' }, ...rows.map((_, i) => ({ at: 400 + i * stagger, name: 'row' }))],
+    cues: [{ at: 0, name: 'title' }, ...rows.map((_, i) => ({ at: 400 + i * stagger, name: 'row' })), ...perks.cues(perkAt)],
     update(v) {
       const t = v.elapsed;
       rise(title, prog(t, 0, 450));
@@ -542,7 +572,9 @@ function leaderboard(v, { titleParts, subText, entries, dense, nextLabel, fans =
       });
       rise(next, prog(t, 600, 400));
       if (fanBox) rise(fanBox, prog(t, 1600, 500));
-      promo.update(Math.max(0, t - (fanBox ? 2000 : 1600)));
+      perks.update(t - perkAt, clamp((t - swapAt) / 350));
+      promo.node.style.visibility = t >= swapAt + 200 ? '' : 'hidden';
+      promo.update(Math.max(0, t - swapAt - 200));
       nb.textContent = secs(v.remaining);
       countdown.style.transform = `scaleX(${clamp(v.remaining / v.duration)})`;
       if (scan) {
@@ -679,12 +711,38 @@ function vote(v) {
   const nb = el('b');
   const voters = el('span');
   next.append(voters, nb);
-  root.append(head(v, null, { right: 'ronde' }), title, sub, list, tally, next);
+  // Pengirim gift sultan yang belum memilih: diberi tahu bahwa komentarnya langsung menentukan topik.
+  const pickNote = el('div', 'ui pick-note');
+  const pickAv = el('span', 'pn-av');
+  const pickTx = el('div', 'pn-tx');
+  const pickName = el('b', 'user');
+  pickTx.append(pickName, el('span', 'mono', 'KETIK NAMA TOPIK DI KOMENTAR, LANGSUNG JADI TOPIK RONDE DEPAN'));
+  pickNote.append(el('span', 'pn-tag mono', 'HAK SULTAN'), pickAv, pickTx);
+  let pickKey = '';
+  let pickAt = null;
+  const perks = perkPanel(v.rules.giftTiers);
+  perks.node.style.top = '1190px';
+  const PERK_AT = 1300;
+  root.append(head(v, null, { right: 'ronde' }), title, sub, list, tally, pickNote, next, perks.node);
   return {
     node: root,
-    cues: [{ at: 0, name: 'title' }, ...rows.map((_, i) => ({ at: 400 + i * 150, name: 'row' }))],
+    cues: [{ at: 0, name: 'title' }, ...rows.map((_, i) => ({ at: 400 + i * 150, name: 'row' })), ...perks.cues(PERK_AT)],
     update(v) {
       const t = v.elapsed;
+      perks.update(t - PERK_AT);
+      const pk = v.pick && !v.pick.theme ? v.pick : null;
+      if ((pk?.name ?? '') !== pickKey) {
+        pickKey = pk?.name ?? '';
+        pickAt = pk ? t : null;
+        pickName.textContent = pk ? `@${pk.name}` : '';
+        pickAv.replaceChildren(...(pk ? [avatar(pk, 64)] : []));
+      }
+      pickNote.style.visibility = pk ? '' : 'hidden';
+      if (pk) {
+        const pp = clamp((t - pickAt) / 420);
+        pickNote.style.opacity = Math.min(1, pp * 2);
+        pickNote.style.transform = `translateX(${(1 - back(pp)) * -120}px)`;
+      }
       rise(title, prog(t, 0, 450));
       rise(sub, prog(t, 120, 450));
       const opts = v.vote?.options ?? [];
@@ -711,7 +769,113 @@ function vote(v) {
   };
 }
 
-export const SCENES = { rules, intro, answer, reveal, winners, board, podium, standings, vote };
+// ---------------------------------------------------------------- topik pilihan sultan
+// Vote dilewati. Tiga kartu tertutup dibagikan, dua disingkirkan, kartu tengah dibalik jadi topik
+// pilihan, dibanting membesar, lalu dicap nama pemilihnya.
+const PK = { deal: 300, flip: 950, slam: 1350, stamp: 1750 };
+
+function topicFace(st, keyword, label) {
+  const frag = [];
+  const corner = (cls) => {
+    const c = el('div', `pc-corner ${cls}`);
+    const mini = el('span', 'pc-mini');
+    mini.innerHTML = st.icon; // SVG statis dari topics.js
+    c.append(mini);
+    return c;
+  };
+  const icon = el('span', 'pc-icon');
+  icon.innerHTML = st.icon;
+  frag.push(el('span', 'pc-frame'), corner('tl'), icon, el('div', 'pc-kw', keyword.toUpperCase()),
+    el('div', 'pc-lb mono', label.toLowerCase() === keyword ? '' : label.toUpperCase()), corner('br'));
+  return frag;
+}
+
+function picked(v) {
+  const p = v.picked;
+  const root = el('div');
+  const title = el('div', 'ui btitle');
+  title.append('TOPIK ', el('em', '', 'PILIHAN SULTAN'));
+  const sub = el('div', 'ui bsub mono', `RONDE ${pad(v.round + 1)} · VOTE DILEWATI · DIPILIH LEWAT KOMENTAR`);
+  const st = topicStyle(p.theme.id);
+  const table = el('div', 'ui pk-table');
+  table.style.setProperty('--tc', st.color);
+  const rays = el('span', 'pk-rays');
+  // Kartu tertutup kiri dan kanan, lalu kartu tengah yang dibalik.
+  const ghosts = [-1, 1].map((side) => {
+    const g = el('div', 'pcard back');
+    g.append(el('span', 'pc-frame'));
+    table.append(g);
+    return { g, side };
+  });
+  const card = el('div', 'pcard chosen');
+  card.style.setProperty('--tc', st.color);
+  const front = el('div', 'pc-front');
+  front.append(...topicFace(st, p.theme.keyword, p.theme.label));
+  const backFace = el('div', 'pc-back');
+  backFace.append(el('span', 'pc-frame'));
+  card.append(front, backFace);
+  const stamp = el('div', 'pk-stamp');
+  const sTx = el('div', 'ps-tx');
+  sTx.append(el('span', 'mono', 'DIPILIH'), el('b', 'user', `@${cleanName(p.name)}`));
+  stamp.append(avatar(p, 76), sTx);
+  table.prepend(rays);
+  table.append(card, stamp);
+  const next = el('div', 'ui next mono');
+  const nb = el('b');
+  next.append(el('span', '', `RONDE ${pad(v.round + 1)} · ${p.theme.label.toUpperCase()} DIMULAI DALAM`), nb);
+  root.append(head(v, null, { right: 'ronde' }), title, sub, table, next);
+  const CX = (952 - 222) / 2;
+  return {
+    node: root,
+    mount() {
+      fit(sTx.querySelector('b'), { max: 54, min: 28, oneLine: true });
+    },
+    cues: [{ at: 0, name: 'title' }, { at: PK.deal, name: 'whoosh' }, { at: PK.flip, name: 'reveal' }, { at: PK.slam, name: 'impact' },
+      { at: PK.stamp, name: 'powerup' }, { at: PK.stamp + 150, name: 'sparkle' }],
+    update(v) {
+      const t = v.elapsed;
+      rise(title, prog(t, 0, 450));
+      rise(sub, prog(t, 120, 450));
+      // Bagi kartu: tiga kartu naik dari bawah membentuk kipas.
+      const deal = (i) => back(clamp((t - PK.deal - i * 90) / 460));
+      const away = smooth(clamp((t - PK.flip) / 420));
+      ghosts.forEach(({ g, side }, i) => {
+        const d = deal(i === 0 ? 0 : 2);
+        g.style.left = `${CX}px`;
+        g.style.opacity = t >= PK.deal ? 1 - away : 0;
+        g.style.transform = `translate(${side * (250 + away * 500)}px, ${(1 - d) * 700 + 30}px) rotate(${side * (8 + away * 30)}deg)`;
+      });
+      // Kartu tengah: dibalik (lebar menyempit lalu melebar), lalu dibanting membesar dan melayang pelan.
+      const d = deal(1);
+      const fl = clamp((t - PK.flip) / 400);
+      const sx = Math.abs(Math.cos(fl * Math.PI));
+      const showFront = fl >= 0.5;
+      front.style.visibility = showFront ? '' : 'hidden';
+      backFace.style.visibility = showFront ? 'hidden' : '';
+      const slam = back(clamp((t - PK.slam) / 380));
+      const scale = 1 + 0.55 * slam;
+      const bob = t > PK.slam + 400 ? Math.sin((t - PK.slam) / 520) * 6 : 0;
+      card.style.left = `${CX}px`;
+      card.style.opacity = t >= PK.deal ? 1 : 0;
+      card.style.transform = `translateY(${(1 - d) * 700 + bob}px) scale(${scale}) scaleX(${t < PK.flip ? 1 : sx})`;
+      card.classList.toggle('lead', t >= PK.slam);
+      // Sinar di belakang kartu berputar pelan setelah kartu mendarat.
+      rays.style.opacity = prog(t, PK.slam, 500) * 0.9;
+      rays.style.transform = `rotate(${t / 60}deg) scale(${0.6 + 0.4 * prog(t, PK.slam, 600)})`;
+      // Cap nama dibanting dari besar ke ukuran asli, sedikit miring.
+      const sp = clamp((t - PK.stamp) / 260);
+      stamp.style.opacity = t >= PK.stamp ? Math.min(1, sp * 3) : 0;
+      stamp.style.transform = `rotate(-7deg) scale(${2.2 - 1.2 * ease(sp)})`;
+      // Guncangan kecil sekali saat cap menghantam.
+      const hit = t >= PK.stamp + 260 && t < PK.stamp + 460 ? Math.sin((t - PK.stamp) / 18) * 6 * (1 - (t - PK.stamp - 260) / 200) : 0;
+      table.style.transform = `translateX(${hit}px)`;
+      rise(next, prog(t, PK.stamp + 300, 400));
+      nb.textContent = secs(v.remaining);
+    },
+  };
+}
+
+export const SCENES = { rules, intro, answer, reveal, winners, board, podium, standings, vote, picked };
 
 // ---------------------------------------------------------------- zona bawah
 // Klasemen live mini di area bawah selama kuis berjalan, klasemen ronde di bawahnya,
@@ -738,7 +902,7 @@ function chipSection(cls, size) {
         const c = el('div', 'chip5');
         const top = el('div', 'c5top');
         top.append(el('span', 'c5r', pad(i + 1)), avatar(e, size));
-        if (e.boost > 1) top.append(el('span', 'boost', `x${e.boost}`));
+        if (e.boost > 1) top.append(el('span', 'boost', `x${xm(e.boost)}`));
         c.append(top, el('span', 'c5n user', e.name), el('span', 'c5s', e.score.toLocaleString('id-ID')));
         return c;
       }));
@@ -784,7 +948,7 @@ function giftStrip(tiers) {
     const info = { label: t.tier.toUpperCase(), ...GIFT_TIER_INFO[t.tier], eg: coinRange(t) };
     const c = el('div', `gcard ${t.tier}`);
     const x = el('div', 'gx');
-    x.append(el('b', '', `x${t.mult}`), el('span', 'mono', 'POIN'));
+    x.append(el('b', '', `x${xm(t.mult)}`), el('span', 'mono', 'POIN'));
     const tx = el('div', 'gtx');
     const perk = giftPerks(t).join(' · ');
     tx.append(el('span', 'gt', info.label), el('span', 'ge', info.eg), el('span', 'gp mono', perk));
@@ -921,6 +1085,64 @@ function promoBanner(big) {
   };
 }
 
+// Panel info bonus pendukung di layar jeda (papan skor, klasemen) dan layar pilih topik.
+// Hanya muncul di jeda, nada informatif, dan selalu ditemani "tetap bisa juara": ajakan gift yang
+// tampil terus-menerus di setiap soal pernah kena sanksi TikTok.
+// Bentuknya tangga: tiap tingkat lebih tinggi dan lebih "panas" warnanya dari kiri ke kanan.
+const PERK_STEP = 120; // jeda antar anak tangga (ms), tiap anak tangga berbunyi
+const PERK_GLINT = 2600; // kilau menyapu tangga, berulang
+const PERK_SHOW = 6500; // lama panel tampil di layar jeda sebelum gantian dengan banner promosi
+
+function perkPanel(tiers) {
+  const extra = (t) => (t.pick ? 'PILIH TOPIK' : t.tier === 'besar' ? 'SOROTAN' : t.tries ? `+${t.tries} TEBAKAN` : `${t.questions} SOAL`);
+  const node = el('div', 'ui perks');
+  const top = el('div', 'pk-top mono');
+  top.append(el('b', '', 'BONUS BUAT PENDUKUNG'), el('span', '', 'NGGAK KIRIM GIFT? TETAP BISA JUARA'));
+  const stair = el('div', 'pk-stair');
+  const steps = tiers.map((t, i) => {
+    const s = el('div', `pk-step s${i + 1}`);
+    s.style.height = `${116 + i * 17}px`;
+    const coin = el('span', 'pk-coin mono', `${t.min}+ KOIN`);
+    const x = el('b', 'pk-x', `×${xm(t.mult)}`);
+    const tag = el('span', 'pk-tag mono', extra(t));
+    s.append(coin, x, tag);
+    stair.append(s);
+    return { s, x, tag };
+  });
+  const glint = el('span', 'pk-glint');
+  stair.append(glint);
+  node.append(top, stair);
+  return {
+    node,
+    // Bunyi relatif terhadap saat panel muncul.
+    cues: (at) => [{ at, name: 'whoosh' }, ...steps.map((_, i) => ({ at: at + 260 + i * PERK_STEP, name: i === steps.length - 1 ? 'powerup' : 'row' })),
+      { at: at + 260 + steps.length * PERK_STEP + 120, name: 'sparkle' }],
+    // t: ms sejak panel muncul, out: 0..1 saat panel disapu keluar.
+    update(t, out = 0) {
+      node.style.visibility = t >= 0 && out < 1 ? '' : 'hidden';
+      if (t < 0) return;
+      rise(top, prog(t, 0, 380) * (1 - out), 14);
+      steps.forEach((st, i) => {
+        // Anak tangga tumbuh dari bawah dengan sedikit pantulan; label menyusul.
+        const p = clamp((t - 260 - i * PERK_STEP) / 420);
+        st.s.style.transform = `scaleY(${p >= 1 ? 1 : back(p)})`;
+        st.s.style.opacity = (p > 0 ? 1 : 0) * (1 - out);
+        const pl = prog(t, 420 + i * PERK_STEP, 300);
+        st.x.style.transform = `translateY(${(1 - pl) * 18}px) scale(${1 + 0.18 * Math.exp(-Math.max(0, t - 420 - i * PERK_STEP) / 160) * (pl > 0 ? 1 : 0)})`;
+        st.tag.style.opacity = pl;
+      });
+      // Anak tangga teratas berdenyut pelan; kilau lewat dari kiri ke kanan.
+      const last = steps.at(-1);
+      const beat = Math.exp(-((t % 916) / 220));
+      last.tag.style.transform = `scale(${1 + 0.05 * beat})`;
+      const g = ((t - 1400) % PERK_GLINT) / PERK_GLINT;
+      glint.style.opacity = t > 1400 && g < 0.5 ? 1 - out : 0;
+      glint.style.transform = `translateX(${g * 2 * 1100 - 200}px) skewX(-18deg)`;
+      node.style.clipPath = out > 0 ? `inset(0 0 0 ${ease(out) * 100}%)` : '';
+    },
+  };
+}
+
 export function lowerZone(box) {
   const wrap = el('div', 'lower');
   const live = chipSection('live', 56);
@@ -1049,7 +1271,8 @@ function tabParts(cls) {
 }
 
 // Label di bawah kartu gift: cuma yang langsung dirasakan pengirimnya, bukan janji keuntungan.
-const perksOf = (s) => (s.tries ? [`+${s.tries} TEBAKAN`] : []);
+// Hak pilih topik ditulis sebagai petunjuk cara memakainya.
+const perksOf = (s) => [...(s.tries ? [`+${s.tries} TEBAKAN`] : []), ...(s.pick ? ['KETIK NAMA TOPIK DI KOMENTAR: KAMU YANG PILIH'] : [])];
 
 // Kartu di slot bawah (dipakai semua tingkat; sultan setelah kartu hero turun).
 function giftCard(s) {
@@ -1205,10 +1428,13 @@ function sultanTakeover(s) {
   });
   const cap = el('div', 'st-cap mono');
   cap.append(el('b', '', 'SULTAN MASUK'), el('span', '', `KIRIM ${s.gift.toUpperCase()} ×${s.count}`));
-  const s3 = word('st-big st-s3', `×${s.mult}`);
+  const s3 = word('st-big st-s3', `×${xm(s.mult)}`);
   const s3strip = el('div', 'st-strip st-s3s mono');
   const s3q = el('b');
   s3strip.append(el('span', '', 'BOOST POIN'), s3q);
+  // Gift terbesar: pengirimnya memilih topik ronde berikutnya lewat komentar.
+  const s3pick = el('div', 'st-strip st-s3p mono');
+  s3pick.append(el('span', '', 'KETIK DI KOMENTAR'), el('b', '', 'KAMU PILIH TOPIKNYA'));
   // Adegan penutup: ucapan makasih untuk sultannya, bukan janji keuntungan.
   const s4 = word('st-big st-s4', 'MAKASIH');
   const s4strip = el('div', 'st-strip st-s4s mono');
@@ -1233,15 +1459,15 @@ function sultanTakeover(s) {
   z(22, ...s2.map((w) => w.m), cap);
   z(29, ph);
   z(31, s3.e);
-  z(32, s3.m, s3strip);
+  z(32, s3.m, s3strip, s3pick);
   z(41, s4.e);
   z(42, s4.m, s4strip, s4like);
   z(50, tri);
   z(55, bars);
   z(60, top);
   root.append(...layers, tri, scrib, s1a.e, s1a.m, s1b.e, s1b.m, who, ph, ...s2.flatMap((w) => [w.e, w.m]), cap,
-    s3.e, s3.m, s3strip, s4.e, s4.m, s4strip, s4like, pre, bars, top);
-  return { root, layers, tris, path, ph, img: pic.img, pre, preName, who, whoName, s1a, s1b, s2, cap, s3, s3strip, s3q, s4, s4strip, s4like, likeN, bars: barEls, top, topR };
+    s3.e, s3.m, s3strip, ...(s.pick ? [s3pick] : []), s4.e, s4.m, s4strip, s4like, pre, bars, top);
+  return { root, layers, tris, path, ph, img: pic.img, pre, preName, who, whoName, s1a, s1b, s2, cap, s3, s3strip, s3q, s3pick: s.pick ? s3pick : null, s4, s4strip, s4like, likeN, bars: barEls, top, topR };
 }
 
 // Ukuran kata raksasa disesuaikan setelah masuk DOM: utuh di dalam layar, tidak terpotong tepi.
@@ -1289,7 +1515,7 @@ export function spotlightLayer(box) {
     const key = `${s.mult}:${s.questions}`;
     if (T.key === key) return;
     T.key = key;
-    T.num.textContent = `×${s.mult}`;
+    T.num.textContent = `×${xm(s.mult)}`;
     T.sub.replaceChildren('POIN', el('br'), `${s.questions} SOAL`);
   }
 
@@ -1323,7 +1549,6 @@ export function spotlightLayer(box) {
   }
 
   const show = (node, on) => { node.style.visibility = on ? '' : 'hidden'; };
-  const smooth = (x) => x * x * (3 - 2 * x); // ease in-out
   const slideIn = (t, at, from) => `translateX(${(1 - back(clamp((t - at) / 420))) * from}px)`;
   const WIPE = 320; // sapuan adegan berikutnya, selesai tepat di ketukan
 
@@ -1419,7 +1644,11 @@ export function spotlightLayer(box) {
     H.s3.m.style.transform += ` scale(${0.7 + 0.3 * back(clamp((t - T.s3) / 460))})`;
     show(H.s3strip, vis(3) && t >= T.s3s);
     H.s3strip.style.transform = slideIn(t, T.s3s, -1100);
-    H.s3q.textContent = `×${s.mult} · ${s.questions} SOAL`;
+    H.s3q.textContent = `×${xm(s.mult)} · ${s.questions} SOAL`;
+    if (H.s3pick) {
+      show(H.s3pick, vis(3) && t >= T.s3s + T.beat);
+      H.s3pick.style.transform = slideIn(t, T.s3s + T.beat, 1100);
+    }
     moveWord(H.s4, vis(4), t, T.s4, { dy: 700, rot: 8, drift: -10, base: 'rotate(3deg)' }, beat);
     show(H.s4strip, vis(4) && t >= T.s4s);
     H.s4strip.style.transform = slideIn(t, T.s4s, 1100);
@@ -1478,6 +1707,78 @@ export function spotlightLayer(box) {
         P.lbl.textContent = s.count > 1 ? 'COMBO GIFT' : 'GIFT MASUK';
         animCard(P, s, t, s.dur, bump);
       }
+    },
+  };
+}
+
+// ---------------------------------------------------------------- ganti tema tiap kelipatan like
+// Tiga balok diagonal menyapu menutup layar, angka tap tap dibanting di tengah, tema berganti saat
+// layar tertutup penuh, lalu balok lepas ke kanan membuka tampilan baru.
+const LOOK = { shut: 420, swap: 900, open: 2300, end: 2900 };
+const LOOK_CUES = [[0, 'whoosh'], [LOOK.shut, 'impact'], [LOOK.shut + 260, 'powerup'], [LOOK.swap, 'sparkle'], [LOOK.open, 'whoosh']];
+
+export function lookLayer(box) {
+  const root = el('div', 'lk');
+  const bands = ['b3', 'b2', 'b1'].map((c) => el('span', `lk-band ${c}`));
+  const mid = el('div', 'lk-mid');
+  const echo = el('b', 'lk-num echo');
+  const num = el('b', 'lk-num');
+  const tap = el('div', 'lk-tap', 'TAP TAP!');
+  const strip = el('div', 'lk-strip mono');
+  const from = el('span', 'lk-from');
+  const to = el('b', 'lk-to');
+  strip.append(el('span', '', 'GANTI TEMA'), from, el('span', 'lk-arrow', '→'), to);
+  mid.append(echo, num, tap, strip);
+  root.append(...bands, mid);
+  box.append(root);
+  let key = 0;
+  let fired = new Set();
+  return {
+    // Mengembalikan tema yang sedang terlihat (true = terang): berganti saat layar tertutup penuh.
+    update(v, now, play = () => {}) {
+      const L = v.look;
+      if (!L || L.n === 0) {
+        root.style.visibility = 'hidden';
+        return false;
+      }
+      const t = L.age;
+      if (L.n !== key) {
+        key = L.n;
+        fired = new Set();
+        num.textContent = L.likes.toLocaleString('id-ID');
+        echo.textContent = num.textContent;
+        from.textContent = L.light ? 'GELAP' : 'TERANG';
+        to.textContent = L.light ? 'TERANG' : 'GELAP';
+      }
+      for (const [i, [at, name]] of LOOK_CUES.entries()) {
+        if (!fired.has(i) && t >= at && t < LOOK.end) {
+          fired.add(i);
+          play(name, now - t + at);
+        }
+      }
+      root.style.visibility = t < LOOK.end ? 'visible' : 'hidden';
+      if (t >= LOOK.end) return L.light;
+      // Balok: menutup dari kiri bertingkat, lalu membuka ke kanan bertingkat (yang terakhir menutup
+      // paling dulu membuka, jadi tepinya berundak).
+      bands.forEach((b, i) => {
+        const shut = smooth(clamp((t - i * 90) / 360)) * 130;
+        const open = smooth(clamp((t - LOOK.open - (2 - i) * 90) / 380)) * 130;
+        b.style.clipPath = `polygon(${open}% 0, ${shut}% 0, ${shut - 30}% 100%, ${open - 30}% 100%)`;
+      });
+      // Angka dibanting membesar-kecil, gemanya tertinggal; teks lain meluncur masuk.
+      const on = t >= LOOK.shut - 40 && t < LOOK.open + 260;
+      mid.style.visibility = on ? '' : 'hidden';
+      if (!on) return t >= LOOK.swap ? L.light : !L.light;
+      const out = smooth(clamp((t - LOOK.open) / 260));
+      const p = clamp((t - LOOK.shut) / 420);
+      const beat = Math.exp(-((t - LOOK.shut) % 458) / 160);
+      num.style.transform = `scale(${(1.7 - 0.7 * back(p)) * (1 + 0.025 * beat)}) translateX(${out * 600}px)`;
+      const pe = clamp((t - LOOK.shut - 90) / 520);
+      echo.style.transform = `translate(${10 + 16 * smooth(pe)}px, ${8 + 12 * smooth(pe)}px) scale(${1.7 - 0.7 * back(pe)}) translateX(${out * 600}px)`;
+      echo.style.opacity = Math.min(1, pe * 3) * 0.9;
+      tap.style.transform = `translateX(${(1 - back(clamp((t - LOOK.shut - 160) / 420))) * -900 + out * 900}px) skewX(-8deg)`;
+      strip.style.transform = `translateX(${(1 - back(clamp((t - LOOK.swap) / 420))) * 1100 - out * 1100}px)`;
+      return t >= LOOK.swap ? L.light : !L.light;
     },
   };
 }

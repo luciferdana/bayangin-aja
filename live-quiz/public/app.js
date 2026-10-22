@@ -3,9 +3,10 @@
 //
 // Parameter URL:
 //   ?sim=1          penonton palsu (tanpa TikTok)    &viewers=60  &simgift=0 tanpa gift acak
-//                   tombol 1/2/3: kirim gift kecil/sedang/sultan (combo Mawar x3, x10, x100)
+//                   tombol 1-5: kirim combo Mawar senilai 1, 5, 10, 30, 100 koin (tiap tingkat perk gift)
 //   &speed=4        percepat waktu (uji)             &seed=7   hasil acak tetap
 //   &q=komodo       mulai dari soal tertentu         &like=100 target like bantuan
+//   &tapgoal=300    ganti tema tiap sekian like (default 10.000), untuk uji tampilan terang
 //   &tema=negara    topik ronde pertama (sains, sejarah, olahraga, umum, negara, provinsi, campuran);
 //                   tanpa ini dipilih acak, ronde berikutnya lewat vote penonton
 //   &mute=1         tanpa suara                       &debug=1  tampilkan status koneksi
@@ -16,7 +17,7 @@
 import { QuizEngine, mulberry32, DEFAULTS } from './engine.js';
 import { QUESTIONS } from './questions.js';
 import { Sim } from './sim.js';
-import { SCENES, lowerZone, spotlightLayer } from './ui.js';
+import { SCENES, lowerZone, spotlightLayer, lookLayer } from './ui.js';
 import { loadMap, loadGeo } from './map.js';
 import { makeGenerators } from './geoquiz.js';
 import { Sound } from './sfx.js';
@@ -35,6 +36,8 @@ const connEl = document.getElementById('conn');
 const scrimHeavy = document.getElementById('scrimHeavy');
 const lower = lowerZone(document.getElementById('lower'));
 const spot = spotlightLayer(document.getElementById('spot'));
+const look = lookLayer(document.getElementById('look'));
+let light = false; // tema terang sedang tampil
 
 function fitStage() {
   const s = Math.min(innerWidth / 1080, innerHeight / 1920);
@@ -133,11 +136,18 @@ function render(now) {
 
   lower.update(v, now);
   spot.update(v, now, play, capture ? 0 : sound.latencyMs);
+  // Tema terang/gelap berganti di tengah sapuan, saat layar tertutup penuh.
+  const shown = look.update(v, now, play);
+  if (shown !== light) {
+    light = shown;
+    stage.classList.toggle('terang', light);
+    globe.setLight(light);
+  }
 
   // Bunyi untuk toast follow/share/bantuan yang baru masuk.
   const ids = new Set(v.toasts.map((t) => Math.round(now - t.age)));
   for (const t of v.toasts) {
-    if (!toastIds.has(Math.round(now - t.age))) play(t.kind === 'hint' ? 'hint' : 'follow', now);
+    if (!toastIds.has(Math.round(now - t.age))) play(t.kind === 'hint' ? 'hint' : t.kind === 'pick' ? 'powerup' : 'follow', now);
   }
   toastIds = ids;
 
@@ -160,7 +170,7 @@ async function boot() {
     startWith: params.get('q'),
     theme: params.get('tema'),
     generators: ctx.geoData ? makeGenerators(ctx.geoData) : {},
-    config: { hintLikes: num('like', DEFAULTS.hintLikes) },
+    config: { hintLikes: num('like', DEFAULTS.hintLikes), themeLikes: num('tapgoal', DEFAULTS.themeLikes) },
   });
   // Giliran soal dan siklus topik dilanjutkan dari sesi sebelumnya (hanya live sungguhan;
   // simulasi dan render tidak membaca atau menulis catatan ini).
@@ -172,9 +182,9 @@ async function boot() {
     }
   }
   if (params.has('sim')) sim = new Sim(engine, seed ? mulberry32(Number(seed) + 1) : Math.random, { viewers: num('viewers', 60), gifts: params.get('simgift') !== '0' });
-  // Mode simulasi: tombol 1/2/3 mengirim combo Mawar tingkat kecil/sedang/sultan untuk uji sorotan.
+  // Mode simulasi: tombol 1-5 mengirim combo Mawar sesuai ambang tiap tingkat gift untuk uji sorotan.
   if (sim) {
-    const TEST_GIFTS = { 1: 3, 2: 10, 3: 100 };
+    const TEST_GIFTS = { 1: 1, 2: 5, 3: 10, 4: 30, 5: 100 };
     addEventListener('keydown', (ev) => {
       const count = TEST_GIFTS[ev.key];
       if (count) engine.handle({ type: 'gift', ...sim.pick(), gift: 'Mawar', count, coins: count }, clock());

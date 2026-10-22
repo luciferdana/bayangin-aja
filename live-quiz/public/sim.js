@@ -5,7 +5,7 @@ const FIRST = ['budi', 'rina', 'dodi', 'sari', 'agus', 'wulan', 'yoga', 'putri',
   'rizky', 'dewi', 'fajar', 'intan', 'galih', 'ayu', 'eko', 'lala', 'hendra', 'mega', 'tono', 'citra'];
 const CHAT = ['halo kak', 'wkwk', 'susah bgt', 'gampang ini', 'ikut ya', 'mantap', 'lanjut', 'hadir'];
 // [nama gift, koin] kira-kira seperti gift TikTok; sebagian besar gift kecil.
-const GIFTS = [['Mawar', 1], ['Mawar', 1], ['Jari Hati', 5], ['Donat', 30], ['Topi Koboi', 99], ['Paus', 500]];
+const GIFTS = [['Mawar', 1], ['Mawar', 1], ['Mawar', 1], ['Jari Hati', 5], ['Donat', 30], ['Topi Koboi', 99], ['Paus', 500]];
 const SKILL = { mudah: 0.85, sedang: 0.6, sulit: 0.35 };
 
 // Foto profil buatan: gradasi kalem + siluet, sebagai data URI SVG.
@@ -59,6 +59,15 @@ export class Sim {
       this.lastKey = key;
       if (e.phase === 'answer') this.planAnswers(now);
       if (e.phase === 'vote') this.planVotes(now);
+    }
+    // Pengirim gift sultan (penonton palsu) mengetik topik pilihannya beberapa detik kemudian.
+    const pick = e.picks?.[0];
+    if (pick && !pick.theme && pick !== this.pickPlanned && this.viewers.some((v) => v.user === pick.user)) {
+      this.pickPlanned = pick;
+      const themes = e.pickable();
+      const t = themes[Math.floor(this.rng() * themes.length)];
+      this.queue.push({ at: now + 2500 + this.rng() * 3000, evt: { type: 'comment', user: pick.user, name: pick.name, text: this.rng() < 0.5 ? t.keyword : `${t.label.toLowerCase()} dong` } });
+      this.queue.sort((a, b) => a.at - b.at);
     }
     while (this.queue.length && this.queue[0].at <= now) e.handle(this.queue.shift().evt, now);
 

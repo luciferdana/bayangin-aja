@@ -10,6 +10,8 @@ export const TOPIC_STYLE = {
   bola: { color: '#8bd450', icon: I('<circle cx="32" cy="32" r="25"/><path d="m32 22 9 7-3.5 11h-11L23 29Z"/><path d="M32 22V8M41 29l13-5M37.5 40l8 12M26.5 40l-8 12M23 29l-13-5"/>') },
   anime: { color: '#ff5fa2', icon: I('<path d="M32 4 38 26 60 32 38 38 32 60 26 38 4 32 26 26Z"/><circle cx="32" cy="32" r="5"/>') },
   musik: { color: '#a77bff', icon: I('<path d="M24 46V12l26-6v34"/><circle cx="17" cy="46" r="7"/><circle cx="43" cy="40" r="7"/>') },
+  barat: { color: '#4cc9f0', icon: I('<circle cx="32" cy="32" r="25"/><circle cx="32" cy="32" r="8"/><circle cx="32" cy="32" r="2" fill="currentColor"/><path d="M15 23a19 19 0 0 1 9-9M49 41a19 19 0 0 1-9 9"/>') },
+  mtk: { color: '#f4a261', icon: I('<path d="M18 10v16M10 18h16M38 18h16M12 40l12 12M24 40 12 52M38 46h16"/><circle cx="46" cy="39" r="2.5" fill="currentColor"/><circle cx="46" cy="53" r="2.5" fill="currentColor"/>') },
   inggris: { color: '#e07a5f', icon: I('<path d="M8 10h48v32H30l-12 11V42H8Z"/><path d="m21 35 8-18 8 18M24 29h10"/><path d="M43 22v13M43 27a5 5 0 1 1 0 6"/>') },
   kampus: { color: '#b08968', icon: I('<path d="M4 24 32 12l28 12-28 12Z"/><path d="M16 30v13c0 4 8 8 16 8s16-4 16-8V30"/><path d="M56 26v15"/><circle cx="56" cy="45" r="2.5" fill="currentColor"/>') },
   umum: { color: '#f2d649', icon: I('<path d="M22 40a16 16 0 1 1 20 0v6H22Z"/><path d="M24 52h16M27 58h10"/>') },

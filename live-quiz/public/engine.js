@@ -4,6 +4,9 @@
 // Alur satu ronde:
 //   rules -> [intro -> answer -> reveal -> winners] x10, dengan board setelah soal 5
 //   -> podium -> standings -> vote (tema ronde berikutnya) -> ronde baru
+// Kalau ada pengirim gift sultan yang sudah memilih topik, vote dilewati:
+//   standings -> picked (pengumuman topik pilihannya) -> ronde baru
+import { mathQuestion } from './mtk.js';
 
 export const DEFAULTS = {
   rulesMs: 9000,
@@ -11,10 +14,11 @@ export const DEFAULTS = {
   answerMs: 20000,
   revealMs: 7500,
   winnersMs: 7000,
-  boardMs: 8000,
+  boardMs: 15000,
   podiumMs: 9000,
-  standingsMs: 9000,
+  standingsMs: 15000,
   voteMs: 30000,
+  pickedMs: 6000, // pengumuman topik pilihan sultan (vote dilewati)
   voteCooldown: 2, // topik dari sekian ronde terakhir tidak ditawarkan lagi saat vote
   roundSize: 10,
   boardEvery: 5,
@@ -31,18 +35,24 @@ export const DEFAULTS = {
   toastMs: 4500,
   maxToasts: 3,
   wallSize: 40,
-  // Gift: tingkat dihitung dari nilai koin (tidak pernah ditampilkan).
+  // Gift: tingkat dihitung dari nilai koin satu kiriman/combo (tidak pernah ditampilkan di sorotan).
   // Boost mengalikan poin jawaban benar selama `questions` soal yang dijawab.
-  // `tries`: tambahan jatah tebakan selama soal boost yang sama. `vote`: tambahan suara di vote
-  // topik berikutnya (disimpan sampai pengirim memilih). `hint`: buka pilihan / coret dua untuk semua.
+  // `tier`: gaya sorotan (kecil/sedang = kartu, besar = takeover sultan bermusik).
+  // `tries`: tambahan jatah tebakan selama soal boost yang sama. `freeze`: timer kuis berhenti
+  // selama sorotan. `pick`: pengirim memilih topik ronde berikutnya lewat komentar.
   giftTiers: [
-    { tier: 'kecil', min: 1, mult: 2, questions: 1, ms: 3500, vote: 5 },
-    { tier: 'sedang', min: 10, mult: 2, questions: 3, ms: 5000, vote: 20, tries: 2 },
-    { tier: 'besar', min: 30, mult: 3, questions: 3, ms: 12500, vote: 100, freeze: true },
+    { key: 'x1.5', tier: 'kecil', min: 1, mult: 1.5, questions: 1, ms: 3500 },
+    { key: 'x2', tier: 'kecil', min: 5, mult: 2, questions: 2, ms: 3500 },
+    { key: 'x2.5', tier: 'sedang', min: 10, mult: 2.5, questions: 3, ms: 5000, tries: 2 },
+    { key: 'x3', tier: 'besar', min: 30, mult: 3, questions: 3, ms: 12500, tries: 2, freeze: true },
+    { key: 'x5', tier: 'besar', min: 100, mult: 5, questions: 5, ms: 12500, tries: 2, freeze: true, pick: true },
   ],
   boostMaxQuestions: 10,
   spotlightQueue: 8,
   supporters: 12,
+  pickQueue: 3, // antrean hak pilih topik (pengirim pertama dipakai dulu)
+  // Setiap kelipatan sekian like (tap tap), tampilan berganti gelap <-> terang.
+  themeLikes: 10000,
 };
 
 // Huruf pojok kartu topik di layar vote, urut kartu pertama sampai keempat.
@@ -58,8 +68,12 @@ export const THEMES = [
   { id: 'olahraga', label: 'Olahraga', keyword: 'olahraga', cats: ['Olahraga'], alias: ['sport'] },
   { id: 'bola', label: 'Sepak Bola', keyword: 'bola', cats: ['Sepak Bola'], alias: ['sepak bola', 'sepakbola', 'football'] },
   { id: 'anime', label: 'Anime & Manga', keyword: 'anime', cats: ['Anime dan Manga'], alias: ['manga', 'wibu'] },
-  { id: 'musik', label: 'Musik Indonesia', keyword: 'musik', cats: ['Musik Indonesia'], alias: ['lagu', 'music'] },
-  { id: 'inggris', label: 'Bahasa Inggris', keyword: 'inggris', cats: ['Bahasa Inggris'], alias: ['english', 'b inggris'] },
+  { id: 'musik', label: 'Musik Indonesia', keyword: 'musik', cats: ['Musik Indonesia'], alias: ['lagu', 'music', 'lagu indo', 'musik indo', 'indo'] },
+  { id: 'barat', label: 'Musik Barat', keyword: 'barat', cats: ['Musik Barat'],
+    alias: ['lagu barat', 'musik barat', 'western', 'lagu inggris', 'musik inggris', 'english song', 'lagu luar'] },
+  { id: 'inggris', label: 'Bahasa Inggris', keyword: 'inggris', cats: ['Bahasa Inggris'], alias: ['english', 'b inggris', 'bahasa inggris'] },
+  // MTK: soal hitungan dibuat acak tiap tampil (tidak bisa dihafal), ditambah soal jebakan tetap.
+  { id: 'mtk', label: 'Matematika', keyword: 'mtk', gen: 'mtk', cats: ['Matematika'], alias: ['matematika', 'math', 'hitung', 'itung'] },
   { id: 'kampus', label: 'Kampus', keyword: 'kampus', cats: ['Kampus'], alias: ['kuliah', 'universitas'] },
   { id: 'umum', label: 'Pengetahuan Umum', keyword: 'umum', cats: ['Geografi', 'Bahasa dan Budaya', 'Teknologi', 'Makanan', 'Seni dan Musik', 'Angka dan Skala', 'Benar atau Mitos'], alias: ['budaya'] },
   { id: 'negara', label: 'Tebak Negara', keyword: 'negara', gen: 'negara' },
@@ -155,6 +169,37 @@ export function matchAnswer(text, matcher) {
   return null;
 }
 
+// Komentar -> indeks topik. Seperti matchAnswer, tapi komentar yang menyebut dua topik
+// ("musik inggris", "sains bola") tidak dibuang: topik yang disebut paling awal yang dihitung.
+export function matchTopic(text, matcher) {
+  const whole = matchAnswer(text, matcher);
+  if (whole !== null || typeof text !== 'string' || text.length > 80) return whole;
+  const words = normalize(text).split(' ').filter((w) => w && !FILLER.has(w));
+  if (words.length > 8) return null;
+  for (let i = 0; i < words.length; i++) {
+    for (let len = Math.min(3, words.length - i); len >= 1; len--) {
+      const cand = words.slice(i, i + len).join('');
+      let best = null;
+      let bestD = Infinity;
+      let tie = false;
+      for (const e of matcher) {
+        const tol = tolerance(e.key);
+        const d = editDistance(cand, e.key, tol);
+        if (d > tol || (d === bestD && e.index === best)) continue;
+        if (d < bestD) [best, bestD, tie] = [e.index, d, false];
+        else if (d === bestD) tie = true;
+      }
+      if (best !== null && !tie) return best;
+    }
+  }
+  return null;
+}
+
+// Pencocok topik dari daftar tema: kata kunci, label, dan alias.
+export function topicMatcher(themes) {
+  return buildMatcher({ options: themes.map((t) => t.keyword), alias: Object.fromEntries(themes.map((t) => [t.keyword, [t.label, ...(t.alias || [])]])) });
+}
+
 export function mulberry32(seed) {
   let a = seed >>> 0;
   return () => {
@@ -190,8 +235,8 @@ export class QuizEngine {
       points: { ...DEFAULTS.points, ...(config.points || {}) },
     };
     this.rng = rng;
-    this.generators = generators;
-    this.themes = THEMES.filter((t) => !t.gen || generators[t.gen]);
+    this.generators = { mtk: mathQuestion, ...generators };
+    this.themes = THEMES.filter((t) => !t.gen || this.generators[t.gen]);
     const topics = this.themes.filter((t) => !t.noVote);
     this.fixedTheme = this.themes.find((t) => t.id === theme) ?? null; // ?tema= di URL
     this.nextTheme = this.fixedTheme ?? topics[Math.floor(rng() * topics.length)];
@@ -208,6 +253,9 @@ export class QuizEngine {
     this.spot = null;
     this.toasts = [];
     this.totalLikes = 0;
+    this.look = { n: 0, at: -Infinity }; // pergantian tema ke-n (tiap cfg.themeLikes like)
+    this.picks = []; // hak pilih topik dari gift sultan: { user, name, avatar, theme, votes }
+    this.picked = null; // pilihan yang sedang diumumkan (fase 'picked')
     this.phase = 'idle';
     this.qIndex = -1;
     this.questions = [];
@@ -244,9 +292,11 @@ export class QuizEngine {
     // Urutan acak penuh: soal mana pun (mudah, sedang, sulit) bisa jadi nomor 1. Hanya dijaga
     // supaya kategori yang sama tidak berurutan.
     let order = shuffle(picks, this.rng);
-    // Soal baru yang belum pernah tampil ditaruh di awal ronde.
-    const fresh = (q) => q.baru && !this.used.has(q.id);
-    order = [...order.filter(fresh), ...order.filter((q) => !fresh(q))];
+    // Soal jebakan lalu soal baru yang belum pernah tampil ditaruh di awal ronde.
+    const unseen = (flag) => (q) => q[flag] && !this.used.has(q.id);
+    const trap = unseen('jebakan');
+    const fresh = unseen('baru');
+    order = [...order.filter(trap), ...order.filter((q) => !trap(q) && fresh(q)), ...order.filter((q) => !trap(q) && !fresh(q))];
     if (!theme.gen) order = this.spreadCategories(order);
     if (this.startWith) {
       const q = this.bank.find((x) => x.id === this.startWith);
@@ -255,7 +305,10 @@ export class QuizEngine {
     }
     order = order.slice(0, this.cfg.roundSize);
     // Dicatat sesuai urutan pengambilan (bukan urutan tampil) supaya giliran rotasinya tetap.
-    for (const q of [...picks.filter((x) => order.includes(x)), ...order.filter((x) => !picks.includes(x))]) this.remember(q.id);
+    // Soal hitungan acak tidak dicatat: angkanya selalu baru, catatannya cuma memenuhi penyimpanan.
+    for (const q of [...picks.filter((x) => order.includes(x)), ...order.filter((x) => !picks.includes(x))]) {
+      if (q.gen !== 'mtk') this.remember(q.id);
+    }
     return order;
   }
 
@@ -286,17 +339,30 @@ export class QuizEngine {
   // terulang. Kalau tema kehabisan tingkat itu, ambil tingkat lain, lalu seluruh bank.
   draw(theme, diff, taken) {
     const last = (id) => this.used.get(id) ?? -1;
-    if (theme.gen) return this.generators[theme.gen](diff, this.rng, new Set(taken.map((q) => q.id)), last);
-    const inTheme = (q) => !theme.cats || theme.cats.includes(q.cat);
     const takenIds = new Set(taken.map((q) => q.id));
+    // Soal bertanda `jebakan: true` lalu `baru: true` yang belum pernah tampil didahulukan dari soal
+    // lama yang belum tampil.
+    const rank = (q) => this.used.get(q.id) ?? (q.jebakan ? -3 : q.baru ? -2 : -1);
+    if (theme.gen) {
+      // Tema generator yang juga punya soal tetap (MTK): soal tetap yang belum tampil dulu, sesekali
+      // soal tetap lama, selebihnya soal buatan generator.
+      if (theme.cats) {
+        const list = this.bank.filter((q) => theme.cats.includes(q.cat) && q.diff === diff && !takenIds.has(q.id));
+        const oldest = list.length ? Math.min(...list.map(rank)) : 0;
+        if (list.length && (oldest < 0 || this.rng() < 0.2)) {
+          const pool = list.filter((q) => rank(q) === oldest);
+          return pool[Math.floor(this.rng() * pool.length)];
+        }
+      }
+      return this.generators[theme.gen](diff, this.rng, takenIds, last);
+    }
+    const inTheme = (q) => !theme.cats || theme.cats.includes(q.cat);
     const tiers = [
       (q) => inTheme(q) && q.diff === diff,
       (q) => inTheme(q),
       (q) => q.diff === diff,
       () => true,
     ];
-    // Soal bertanda `baru: true` yang belum pernah tampil didahulukan dari soal lama yang belum tampil.
-    const rank = (q) => this.used.get(q.id) ?? (q.baru ? -2 : -1);
     for (const ok of tiers) {
       const list = this.bank.filter((q) => ok(q) && !takenIds.has(q.id));
       if (!list.length) continue;
@@ -326,6 +392,7 @@ export class QuizEngine {
     if (!this.theme.noVote) this.cycle.add(this.theme.id);
     if (this.themeHistory.length > 20) this.themeHistory.shift();
     this.questions = this.buildRound(this.theme);
+    this.picked = null;
     this.qIndex = -1;
     this.roundScores = new Map();
     this.current = null;
@@ -423,10 +490,14 @@ export class QuizEngine {
         this.setPhase('standings', now, c.standingsMs);
         break;
       case 'standings':
-        this.openVote(now);
+        if (this.picks[0]?.theme) this.showPick(now);
+        else this.openVote(now);
         break;
       case 'vote':
         this.closeVote();
+        this.newRound(now);
+        break;
+      case 'picked':
         this.newRound(now);
         break;
     }
@@ -450,6 +521,10 @@ export class QuizEngine {
   // (sisa satu = vote satu kartu). Setelah semua kebagian, siklus baru dimulai tanpa topik dari
   // cfg.voteCooldown ronde terakhir. Minimal satu topik tebak lokasi/bendera kalau ada.
   openVote(now) {
+    // Hak pilih topik yang tidak dipakai (pengirimnya tidak mengetik topik) gugur setelah dua vote,
+    // supaya antrean pengirim sultan berikutnya tidak tertahan.
+    const head = this.picks[0];
+    if (head && !head.theme && ++head.votes > 2) this.picks.shift();
     const votable = this.themes.filter((t) => !t.noVote);
     let pool = shuffle(votable.filter((t) => !this.cycle.has(t.id)), this.rng);
     if (!pool.length) {
@@ -458,25 +533,49 @@ export class QuizEngine {
       pool = shuffle(votable.filter((t) => !recent.includes(t.id)), this.rng);
     }
     let options = pool.slice(0, 4);
-    const geo = pool.find((t) => t.gen && !options.includes(t));
-    if (geo && options.length === 4 && !options.some((t) => t.gen)) options[3] = geo;
-    const q = { options: options.map((t) => t.keyword), alias: Object.fromEntries(options.map((t) => [t.keyword, [t.label, ...(t.alias || [])]])) };
-    this.vote = { options, matcher: buildMatcher(q), ballots: new Map(), winner: null };
+    const geo = pool.find((t) => t.gen && t.id !== 'mtk' && !options.includes(t));
+    if (geo && options.length === 4 && !options.some((t) => t.gen && t.id !== 'mtk')) options[3] = geo;
+    this.vote = { options, matcher: topicMatcher(options), ballots: new Map(), winner: null };
     this.setPhase('vote', now, this.cfg.voteMs);
   }
 
+  // Satu orang satu suara; memilih lagi memindahkan suaranya.
   castVote(user, text) {
     // Huruf di pojok kartu (A K Q J) juga dihitung: banyak penonton cuma mengetik hurufnya.
     const key = String(text ?? '').trim().toLowerCase().replace(/^kartu\s+/, '').replace(/[^a-z]/g, '');
     const byKey = VOTE_KEYS.indexOf(key);
-    const i = byKey >= 0 && byKey < this.vote.options.length ? byKey : matchAnswer(text, this.vote.matcher);
+    const i = byKey >= 0 && byKey < this.vote.options.length ? byKey : matchTopic(text, this.vote.matcher);
     if (i === null) return;
-    const prev = this.vote.ballots.get(user);
-    // Suara pertama membawa bonus gift yang terkumpul sejak vote sebelumnya.
-    const p = this.players.get(user);
-    const bonus = prev ? 0 : (p?.votePower ?? 0);
-    if (p) p.votePower = 0;
-    this.vote.ballots.set(user, { choice: i, weight: (prev?.weight ?? 1) + bonus });
+    this.vote.ballots.set(user, { choice: i, weight: 1 });
+  }
+
+  // Topik yang boleh dipilih pengirim gift sultan: semua topik vote kecuali yang sedang/baru dimainkan.
+  pickable() {
+    return this.themes.filter((t) => !t.noVote && t.id !== this.theme?.id);
+  }
+
+  // Komentar pengirim gift sultan (giliran pertama di antrean) yang menyebut topik mengunci topik
+  // ronde berikutnya. Saat vote berjalan, vote langsung dihentikan dan pilihannya diumumkan.
+  // Mengembalikan true kalau komentarnya dipakai sebagai pilihan topik.
+  pickTopic(user, text, now) {
+    const p = this.picks[0];
+    if (!p || p.user !== user || p.theme) return false;
+    // Saat menjawab, jawaban soal didahulukan.
+    if (this.phase === 'answer' && matchAnswer(text, this.current.matcher) !== null) return false;
+    const themes = this.pickable();
+    const i = matchTopic(text, topicMatcher(themes));
+    if (i === null) return false;
+    p.theme = themes[i];
+    this.toast('pick', p.name, `memilih topik ${p.theme.label} buat ronde depan`, now);
+    if (this.phase === 'vote') this.showPick(now);
+    return true;
+  }
+
+  showPick(now) {
+    this.picked = this.picks.shift();
+    this.nextTheme = this.picked.theme;
+    this.vote = null;
+    this.setPhase('picked', now, this.cfg.pickedMs);
   }
 
   voteTotals() {
@@ -502,7 +601,7 @@ export class QuizEngine {
     const left = Math.max(0, Math.min(1, 1 - msTaken / c.answerMs));
     const bonus = Math.round(base * c.speedBonus * left);
     const streakPts = streak >= c.streakFrom ? c.streakBonus : 0;
-    return { base, bonus, streakPts, mult, total: (base + bonus + streakPts) * mult };
+    return { base, bonus, streakPts, mult, total: Math.round((base + bonus + streakPts) * mult) };
   }
 
   score() {
@@ -542,7 +641,7 @@ export class QuizEngine {
       p.name = name;
       if (avatar) p.avatar = avatar;
     } else {
-      p = { user, name, avatar, score: 0, correct: 0, streak: 0, boost: null, extra: null, votePower: 0 };
+      p = { user, name, avatar, score: 0, correct: 0, streak: 0, boost: null, extra: null };
       this.players.set(user, p);
     }
     return p;
@@ -557,13 +656,15 @@ export class QuizEngine {
     const avatar = cleanAvatar(evt.avatar);
     switch (evt.type) {
       case 'comment':
-        if (!user) break;
+        if (!user || this.pickTopic(user, evt.text, now)) break;
         if (this.phase === 'vote') this.castVote(user, evt.text);
         else this.answer(user, name, avatar, evt.text, now);
         break;
       case 'like': {
         const n = Math.max(1, Math.min(1000, Number(evt.count) || 1));
         this.totalLikes += n;
+        const flips = Math.floor(this.totalLikes / this.cfg.themeLikes);
+        if (flips > this.look.n) this.look = { n: flips, at: now };
         if (this.spot) this.spot.likes = (this.spot.likes ?? 0) + n; // sambutan penonton selama sorotan
         if (this.phase === 'answer') {
           const c = this.current;
@@ -588,7 +689,7 @@ export class QuizEngine {
     }
   }
 
-  // Gift: boost poin, sorotan foto profil dan nama, bobot suara saat voting.
+  // Gift: boost poin, sorotan foto profil dan nama, hak pilih topik untuk gift terbesar.
   gift(user, name, avatar, evt, now) {
     const count = Math.max(1, Math.min(9999, Number(evt.count) || 1));
     const coins = Math.max(1, Number(evt.coins) || count);
@@ -614,13 +715,14 @@ export class QuizEngine {
     this.supporters.set(user, { name, avatar: p.avatar, at: now });
     while (this.supporters.size > this.cfg.supporters) this.supporters.delete(this.supporters.keys().next().value);
 
-    // Suara topik: langsung ke surat suara kalau sedang vote dan sudah memilih, selain itu disimpan.
-    const ballot = this.phase === 'vote' ? this.vote.ballots.get(user) : null;
-    if (ballot) ballot.weight += tier.vote ?? 0;
-    else p.votePower = (p.votePower ?? 0) + (tier.vote ?? 0);
+    // Hak pilih topik: pengirim pertama dipakai lebih dulu, berikutnya mengantre ke ronde-ronde
+    // setelahnya. Satu orang satu hak yang belum terpakai.
+    if (tier.pick && this.picks.length < this.cfg.pickQueue && !this.picks.some((x) => x.user === user && !x.theme)) {
+      this.picks.push({ user, name, avatar: p.avatar, theme: null, votes: 0 });
+    }
 
     // Gift beruntun dari orang dan jenis yang sama digabung jadi satu sorotan (combo).
-    const same = (s) => s && s.user === user && s.gift === giftName && s.tier === tier.tier;
+    const same = (s) => s && s.user === user && s.gift === giftName && s.key === tier.key;
     const target = same(this.spot) ? this.spot : this.spotQueue.find(same);
     if (target) {
       target.count += count;
@@ -629,9 +731,9 @@ export class QuizEngine {
       if (target === this.spot) this.spot.end = Math.max(this.spot.end, now + 1500);
       return;
     }
-    const spot = { id: `${user}:${now}`, user, name, avatar: p.avatar, gift: giftName, giftImg: cleanAvatar(evt.giftImage), count, tier: tier.tier,
-      mult: p.boost.mult, questions: p.boost.left, ms: tier.ms, hint: !!tier.hint, freeze: !!tier.freeze,
-      tries: tier.tries ?? 0, vote: tier.vote ?? 0 };
+    const spot = { id: `${user}:${now}`, user, name, avatar: p.avatar, gift: giftName, giftImg: cleanAvatar(evt.giftImage), count,
+      tier: tier.tier, key: tier.key, mult: p.boost.mult, questions: p.boost.left, ms: tier.ms, hint: !!tier.hint, freeze: !!tier.freeze,
+      tries: tier.tries ?? 0, pick: !!tier.pick && this.picks.some((x) => x.user === user && !x.theme) };
     // Antrean penuh: buang sorotan kecil paling lama, sorotan besar tidak pernah dibuang.
     if (this.spotQueue.length >= this.cfg.spotlightQueue) {
       const i = this.spotQueue.findIndex((s) => s.tier === 'kecil');
@@ -747,6 +849,14 @@ export class QuizEngine {
         voters: this.vote.ballots.size,
       },
       nextTheme: this.nextTheme && { id: this.nextTheme.id, label: this.nextTheme.label },
+      // Hak pilih topik yang sedang berlaku (pengirim pertama di antrean) dan pengumumannya.
+      pick: this.picks[0] && { name: this.picks[0].name, avatar: this.picks[0].avatar,
+        theme: this.picks[0].theme && { id: this.picks[0].theme.id, label: this.picks[0].theme.label } },
+      picked: this.phase === 'picked' && this.picked ? { name: this.picked.name, avatar: this.picked.avatar,
+        theme: { id: this.picked.theme.id, label: this.picked.theme.label, keyword: this.picked.theme.keyword } } : null,
+      // Tema tampilan: terang setiap kelipatan ganjil cfg.themeLikes like. age = ms sejak berganti.
+      look: { light: this.look.n % 2 === 1, n: this.look.n, likes: this.look.n * cfg.themeLikes, age: now - this.look.at, every: cfg.themeLikes },
+      totalLikes: this.totalLikes,
       rules: {
         points: { ...cfg.points },
         speedBonus: cfg.speedBonus,
@@ -755,8 +865,8 @@ export class QuizEngine {
         answerSec: Math.round(cfg.answerMs / 1000),
         hintLikes: cfg.hintLikes,
         maxTries: cfg.maxTries,
-        giftTiers: cfg.giftTiers.map((t) => ({ tier: t.tier, min: t.min, mult: t.mult, questions: t.questions, hint: !!t.hint, freeze: !!t.freeze,
-          tries: t.tries ?? 0, vote: t.vote ?? 0 })),
+        giftTiers: cfg.giftTiers.map((t) => ({ key: t.key, tier: t.tier, min: t.min, mult: t.mult, questions: t.questions, hint: !!t.hint,
+          freeze: !!t.freeze, tries: t.tries ?? 0, pick: !!t.pick })),
       },
       toasts: this.toasts.map((t) => ({ kind: t.kind, name: t.name, text: t.text, age: now - t.at })),
     };

@@ -37,6 +37,8 @@ mencoba lagi sendiri. Kalau koneksi terputus, server juga menyambung ulang sendi
 Me-restart server saja tidak me-reset klasemen.
 
 Uji tanpa live: `npm start`, lalu buka `http://localhost:8787/?sim=1` (penonton palsu).
+Tombol 1 sampai 5 mengirim gift uji senilai 1, 5, 10, 30, dan 100 koin. Tema terang bisa diuji
+cepat dengan `&tapgoal=300` (ganti tema tiap 300 like, bukan 10.000).
 Parameter lain ada di komentar atas `public/app.js` (misalnya `&speed=4`, `&tema=negara`,
 `&bumi=siang`, `&debug=1`). Cahaya Bumi bawaan `nyata`: siang dan malam mengikuti jam sekarang.
 
@@ -53,6 +55,9 @@ eulerstream.com lalu jalankan dengan `EULER_API_KEY=... npm start -- bayangin.3d
 - Skor: dasar mudah 100, sedang 150, sulit 200, plus bonus cepat sampai +50% (penuh di
   detik pertama, nol di detik terakhir). Benar 3 kali beruntun atau lebih: +50 per soal.
 - Target like diatur di `hintLikes` (`public/engine.js`), atau sementara lewat URL `?like=150`.
+- Setiap kelipatan **10.000 like** (tap tap), tampilan berganti gelap ke terang lewat sapuan
+  "10.000 TAP TAP! GANTI TEMA", lalu kembali gelap di 20.000, terang lagi di 30.000, dan
+  seterusnya. Hitungan mulai dari nol tiap halaman dimuat ulang. Diatur di `themeLikes`.
 - Follow dan share memunculkan ucapan terima kasih.
 
 ### Gift
@@ -60,34 +65,52 @@ eulerstream.com lalu jalankan dengan `EULER_API_KEY=... npm start -- bayangin.3d
 Tingkat gift dihitung dari nilai koinnya. Nilai koin **tidak pernah tampil di layar**; yang tampil
 foto profil, nama, nama gift, dan boost-nya.
 
-| Tingkat | Koin | Boost | Tampilan |
-|---|---|---|---|
-| Kecil | 1-9 | poin x2 untuk 1 soal, +5 suara vote | kartu meluncur di slot bawah |
-| Sedang | 10-29 | poin x2 dan +2 jatah tebakan untuk 3 soal, +20 suara vote | kartu lebih besar di slot bawah |
-| Besar | 30+ | poin x3 untuk 3 soal, +100 suara vote, timer menjawab berhenti selama sorotan | pita "Sultan Masuk" di slot bawah, bingkai layar menyala, klip musik sultan |
+| Koin (satu kiriman/combo) | Boost | Tampilan |
+|---|---|---|
+| 1-4 | poin x1,5 untuk 1 soal | kartu di slot bawah |
+| 5-9 | poin x2 untuk 2 soal | kartu di slot bawah |
+| 10-29 | poin x2,5 dan +2 jatah tebakan untuk 3 soal | kartu lebih besar di slot bawah |
+| 30-99 | poin x3 dan +2 tebakan untuk 3 soal, timer menjawab berhenti | takeover sultan dengan musik |
+| 100+ | poin x5 dan +2 tebakan untuk 5 soal, timer berhenti, **pilih topik ronde berikutnya** | takeover sultan dengan musik |
+
+**Pilih topik (100 koin ke atas):** komentar pengirimnya yang menyebut nama topik langsung
+mengunci topik ronde berikutnya. Vote dilewati dan diganti pengumuman "Topik Pilihan Sultan"
+(kartu dibalik lalu dicap namanya). Kalau dia mengetik saat vote berjalan, vote langsung berhenti.
+Saat soal berjalan, jawaban soal tetap didahulukan. Kalau ada beberapa pengirim, yang pertama
+memilih dulu dan yang lain mengantre ke ronde-ronde berikutnya. Hak yang tidak dipakai gugur
+setelah dua kali vote.
 
 Semua sorotan muncul di slot bawah (tempat klasemen mini), jadi soal dan pilihan tidak pernah
 tertutup. Tiap sorotan punya animasi masuk dan SFX sendiri (whoosh, power-up, kilau; gift besar
 ditambah hantaman), dibuat `scripts/make-sfx.py`.
 
 Boost hanya mengalikan poin jawaban yang **benar**; jawaban salah tetap 0. Boost terpakai satu per
-soal yang dijawab. Suara vote dari gift disimpan sampai pemberinya ikut vote topik berikutnya. Pemberi gift masuk
+soal yang dijawab. Vote topik satu orang satu suara; gift tidak menambah suara. Pemberi gift masuk
 daftar Pendukung Live di halaman klasemen. Ambang koin dan boost diatur di `giftTiers`.
 
 Catatan kebijakan: TikTok membatasi live yang dianggap memancing gift secara tidak wajar
-("inorganic gift solicitation"). Layar kuis ini tidak pernah menulis ajakan "kirim gift untuk
-boost"; penonton tahu dari sorotan yang muncul. Hindari mengucapkan ajakan seperti itu di live.
+("inorganic gift solicitation"). Info bonus pendukung hanya muncul di jeda (papan skor setelah
+soal 5, klasemen akhir ronde, dan layar pilih topik), nadanya informatif, dan selalu ditemani
+"nggak kirim gift? tetap bisa juara". Tidak ada ajakan "kirim gift sekarang" di layar. Hindari
+mengucapkan ajakan seperti itu di live.
 
 ### Alur ronde
 
-Sekitar 7 menit: cara main, 10 soal (4 mudah, 4 sedang, 2 sulit), papan skor setelah soal 5,
-podium juara ronde, klasemen live, lalu **vote tema** ronde berikutnya (30 detik, penonton
-mengetik nama topik atau huruf kartunya A/K/Q/J, terbanyak menang). Semua topik kebagian main
+Sekitar 7 menit: cara main, 10 soal (4 mudah, 4 sedang, 2 sulit), papan skor setelah soal 5
+(15 detik), podium juara ronde, klasemen live (15 detik), lalu **vote tema** ronde berikutnya
+(30 detik, penonton mengetik nama topik atau huruf kartunya A/K/Q/J, terbanyak menang; komentar
+yang menyebut dua topik dihitung ke topik yang disebut pertama). Semua topik kebagian main
 sekali sebelum ada topik yang ditawarkan lagi. Giliran soal dan topik disimpan di browser, jadi
 live berikutnya melanjutkan, bukan mulai dari soal yang sama. Setiap ronde satu topik penuh. Topik: sains, sejarah, olahraga,
-sepak bola, anime & manga, musik Indonesia, bahasa Inggris, kampus, pengetahuan umum, tebak negara,
-tebak provinsi, tebak bendera, ibu kota provinsi, ibu kota dunia. Soal tiap topik dirotasi: semua soal satu tingkat keluar dulu sebelum
-ada yang terulang (soal peta juga).
+sepak bola, anime & manga, musik Indonesia (lagu kekinian), musik barat, bahasa Inggris,
+matematika, kampus, pengetahuan umum, tebak negara, tebak provinsi, tebak bendera, ibu kota
+provinsi, ibu kota dunia. Soal tiap topik dirotasi: semua soal satu tingkat keluar dulu sebelum
+ada yang terulang (soal peta juga). Soal matematika dibuat acak setiap tampil (`public/mtk.js`),
+jadi tidak bisa dihafal.
+
+Soal bertanda `jebakan: true` (pertanyaan yang menggiring ke jawaban yang terasa benar padahal
+salah) keluar paling depan di ronde pertama topiknya, lalu soal bertanda `baru: true`, baru
+setelah itu rotasi acak biasa.
 Kartu topik di layar vote memakai warna dan ikon per topik (`public/topics.js`, ikon digambar sendiri). Semua angka bisa
 diubah di `DEFAULTS` pada `public/engine.js`.
 
