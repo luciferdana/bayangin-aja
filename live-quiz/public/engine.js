@@ -244,6 +244,9 @@ export class QuizEngine {
     // Urutan acak penuh: soal mana pun (mudah, sedang, sulit) bisa jadi nomor 1. Hanya dijaga
     // supaya kategori yang sama tidak berurutan.
     let order = shuffle(picks, this.rng);
+    // Soal baru yang belum pernah tampil ditaruh di awal ronde.
+    const fresh = (q) => q.baru && !this.used.has(q.id);
+    order = [...order.filter(fresh), ...order.filter((q) => !fresh(q))];
     if (!theme.gen) order = this.spreadCategories(order);
     if (this.startWith) {
       const q = this.bank.find((x) => x.id === this.startWith);
@@ -292,11 +295,13 @@ export class QuizEngine {
       (q) => q.diff === diff,
       () => true,
     ];
+    // Soal bertanda `baru: true` yang belum pernah tampil didahulukan dari soal lama yang belum tampil.
+    const rank = (q) => this.used.get(q.id) ?? (q.baru ? -2 : -1);
     for (const ok of tiers) {
       const list = this.bank.filter((q) => ok(q) && !takenIds.has(q.id));
       if (!list.length) continue;
-      const oldest = Math.min(...list.map((q) => last(q.id)));
-      const pool = list.filter((q) => last(q.id) === oldest);
+      const oldest = Math.min(...list.map(rank));
+      const pool = list.filter((q) => rank(q) === oldest);
       return pool[Math.floor(this.rng() * pool.length)];
     }
     return null;
